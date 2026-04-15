@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Store } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,13 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/admin", { replace: true });
+    }
+  }, [authLoading, navigate, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,9 +42,10 @@ export default function Login() {
       if (error) {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
       } else {
-        navigate("/admin");
+        toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
       }
     }
+
     setLoading(false);
   };
 
@@ -80,6 +89,7 @@ export default function Login() {
           <div className="mt-4 text-center text-sm text-muted-foreground">
             {isSignUp ? "Já tem conta?" : "Não tem conta?"}{" "}
             <button
+              type="button"
               onClick={() => setIsSignUp(!isSignUp)}
               className="text-primary font-medium hover:underline"
             >
