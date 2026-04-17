@@ -15,6 +15,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const normalizedEmail = email.trim().toLowerCase() === "admin"
+    ? "g.traquino66@gmail.com"
+    : email.trim();
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -28,7 +31,7 @@ export default function Login() {
 
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: { emailRedirectTo: window.location.origin },
       });
@@ -38,11 +41,12 @@ export default function Login() {
         toast({ title: "Conta criada!", description: "Verifique o seu e-mail para confirmar." });
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
+        navigate("/admin", { replace: true });
       }
     }
 
@@ -69,7 +73,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               type="email"
-              placeholder="E-mail"
+              placeholder="E-mail ou Admin"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
