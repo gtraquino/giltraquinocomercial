@@ -43,7 +43,6 @@ export default function Login() {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
-        navigate("/admin", { replace: true });
       }
     }
 
