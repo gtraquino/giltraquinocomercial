@@ -29,28 +29,34 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: { emailRedirectTo: window.location.origin },
-      });
-      if (error) {
-        toast({ title: "Erro no registo", description: error.message, variant: "destructive" });
-      } else {
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+        });
+
+        if (error) {
+          toast({ title: "Erro no registo", description: error.message, variant: "destructive" });
+          return;
+        }
+
         toast({ title: "Conta criada!", description: "Verifique o seu e-mail para confirmar." });
+        return;
       }
-    } else {
+
       const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+
       if (error) {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
-        navigate("/admin", { replace: true });
+        return;
       }
-    }
 
-    setLoading(false);
+      toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
