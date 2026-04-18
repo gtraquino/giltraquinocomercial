@@ -3,8 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Store, ShoppingBag } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MessageCircle, Store, ShoppingBag, Send, Save, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface CartItem {
   id: string;
@@ -13,9 +24,19 @@ interface CartItem {
   qty: number;
 }
 
+type StoreProduct = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string | null;
+};
+
 export default function PublicStore() {
   const { storeId } = useParams<{ storeId: string }>();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [selected, setSelected] = useState<StoreProduct | null>(null);
+  const [qty, setQty] = useState<number>(1);
 
   const { data: store, isLoading: storeLoading } = useQuery({
     queryKey: ["public-store", storeId],
@@ -37,28 +58,47 @@ export default function PublicStore() {
     enabled: !!storeId,
   });
 
-  const addToCart = (product: typeof products[0]) => {
+  const openProduct = (p: StoreProduct) => {
+    const existing = cart.find((c) => c.id === p.id);
+    setSelected(p);
+    setQty(existing ? existing.qty : 1);
+  };
+
+  const closeDialog = () => {
+    setSelected(null);
+    setQty(1);
+  };
+
+  const saveToCart = () => {
+    if (!selected) return;
     setCart((prev) => {
-      const existing = prev.find((c) => c.id === product.id);
+      const existing = prev.find((c) => c.id === selected.id);
       if (existing) {
-        return prev.map((c) => c.id === product.id ? { ...c, qty: c.qty + 1 } : c);
+        return prev.map((c) => c.id === selected.id ? { ...c, qty } : c);
       }
-      return [...prev, { id: product.id, name: product.name, price: Number(product.price), qty: 1 }];
+      return [...prev, { id: selected.id, name: selected.name, price: Number(selected.price), qty }];
     });
+    toast({ title: "Guardado no carrinho", description: `${selected.name} x${qty}` });
+    closeDialog();
+  };
+
+  const orderNow = () => {
+    if (!selected || !store) return;
+    const phone = store.whatsapp.replace(/[^0-9]/g, "");
+    const lineTotal = Number(selected.price) * qty;
+    const msg = `Olá! Gostaria de encomendar na loja *${store.name}*:\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+    const link = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(link, "_blank");
+    closeDialog();
   };
 
   const removeFromCart = (id: string) => {
     setCart((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const updateQty = (id: string, qty: number) => {
-    if (qty <= 0) return removeFromCart(id);
-    setCart((prev) => prev.map((c) => c.id === id ? { ...c, qty } : c));
-  };
-
   const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
 
-  const sendOrder = () => {
+  const sendCartOrder = () => {
     if (!store || cart.length === 0) return;
     const phone = store.whatsapp.replace(/[^0-9]/g, "");
     let items = "";
@@ -92,7 +132,6 @@ export default function PublicStore() {
     );
   }
 
-  // Group by category
   const categories = [...new Set(products.map((p) => p.category || "Outros"))];
 
   return (
@@ -108,8 +147,7 @@ export default function PublicStore() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl p-4 md:p-6">
-        {/* Products */}
+      <div className="mx-auto max-w-4xl p-4 md:p-6 pb-32">
         {products.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -124,21 +162,21 @@ export default function PublicStore() {
                   {products.filter((p) => (p.category || "Outros") === cat).map((p) => {
                     const inCart = cart.find((c) => c.id === p.id);
                     return (
-                      <Card key={p.id} className="hover:shadow-md transition-shadow">
+                      <Card
+                        key={p.id}
+                        className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => openProduct(p as StoreProduct)}
+                      >
                         <CardContent className="p-4 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="font-medium truncate">{p.name}</h3>
                             {p.description && <p className="text-sm text-muted-foreground line-clamp-1">{p.description}</p>}
                             <p className="text-sm font-semibold mt-1">{Number(p.price).toFixed(2)} {store.currency}</p>
                           </div>
-                          {inCart ? (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(p.id, inCart.qty - 1)}>−</Button>
-                              <span className="w-6 text-center text-sm font-medium">{inCart.qty}</span>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(p.id, inCart.qty + 1)}>+</Button>
-                            </div>
-                          ) : (
-                            <Button size="sm" onClick={() => addToCart(p)} className="shrink-0">Adicionar</Button>
+                          {inCart && (
+                            <span className="shrink-0 rounded-full bg-primary/10 text-primary text-xs font-medium px-2 py-1">
+                              x{inCart.qty}
+                            </span>
                           )}
                         </CardContent>
                       </Card>
@@ -152,13 +190,13 @@ export default function PublicStore() {
 
         {/* Cart summary */}
         {cart.length > 0 && (
-          <div className="fixed bottom-0 inset-x-0 bg-card border-t shadow-lg p-4 z-50">
-            <div className="mx-auto max-w-4xl flex items-center justify-between">
+          <div className="fixed bottom-0 inset-x-0 bg-card border-t shadow-lg p-4 z-40">
+            <div className="mx-auto max-w-4xl flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
                 <p className="text-lg font-bold">{total.toFixed(2)} {store.currency}</p>
               </div>
-              <Button onClick={sendOrder} size="lg" className="gap-2">
+              <Button onClick={sendCartOrder} size="lg" className="gap-2">
                 <MessageCircle className="h-5 w-5" />
                 Encomendar via WhatsApp
               </Button>
@@ -166,6 +204,94 @@ export default function PublicStore() {
           </div>
         )}
       </div>
+
+      {/* Product action dialog */}
+      <Dialog open={!!selected} onOpenChange={(o) => !o && closeDialog()}>
+        <DialogContent className="sm:max-w-md">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selected.name}</DialogTitle>
+                {selected.description && (
+                  <DialogDescription>{selected.description}</DialogDescription>
+                )}
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Preço unitário</span>
+                  <span className="font-semibold">
+                    {Number(selected.price).toFixed(2)} {store.currency}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="qty">Quantidade</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    >
+                      −
+                    </Button>
+                    <Input
+                      id="qty"
+                      type="number"
+                      min={1}
+                      value={qty}
+                      onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="text-center"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setQty((q) => q + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t pt-3">
+                  <span className="text-sm text-muted-foreground">Subtotal</span>
+                  <span className="text-lg font-bold">
+                    {(Number(selected.price) * qty).toFixed(2)} {store.currency}
+                  </span>
+                </div>
+              </div>
+
+              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
+                <Button
+                  variant="outline"
+                  onClick={closeDialog}
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  <X className="h-4 w-4" />
+                  Cancelar
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={saveToCart}
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  <Save className="h-4 w-4" />
+                  Gravar
+                </Button>
+                <Button
+                  onClick={orderNow}
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  <Send className="h-4 w-4" />
+                  Pedir
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
