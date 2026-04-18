@@ -72,7 +72,7 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              type="email"
+              type="text"
               placeholder="E-mail ou Admin"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
