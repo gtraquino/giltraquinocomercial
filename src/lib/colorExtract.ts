@@ -1,4 +1,3 @@
-// @ts-expect-error no types
 import ColorThief from "colorthief";
 
 function rgbToHsl(r: number, g: number, b: number): string {
