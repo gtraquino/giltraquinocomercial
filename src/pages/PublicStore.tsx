@@ -236,6 +236,9 @@ export default function PublicStore() {
               </DialogHeader>
 
               <div className="space-y-4 py-2">
+                {selected.image_url && (
+                  <img src={selected.image_url} alt={selected.name} className="w-full h-48 object-cover rounded-lg" />
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Preço unitário</span>
                   <span className="font-semibold">
