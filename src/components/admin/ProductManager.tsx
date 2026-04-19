@@ -32,6 +32,7 @@ export default function ProductManager() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const { data: stores = [] } = useQuery({
     queryKey: ["stores"],
@@ -63,6 +64,7 @@ export default function ProductManager() {
         price: parseFloat(data.price),
         category: data.category || null,
         in_stock: data.in_stock,
+        image_url: data.image_url || null,
         store_id: selectedStoreId,
       };
       if (data.id) {
@@ -108,9 +110,29 @@ export default function ProductManager() {
       price: String(product.price),
       category: product.category || "",
       in_stock: product.in_stock,
+      image_url: product.image_url || "",
     });
     setEditId(product.id);
     setDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Imagem muito grande", description: "Máx. 5MB", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadStoreAsset(file, "products");
+      setForm((f) => ({ ...f, image_url: url }));
+      toast({ title: "Imagem carregada" });
+    } catch (err) {
+      toast({ title: "Erro no upload", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -144,12 +166,27 @@ export default function ProductManager() {
                   <Textarea placeholder="Descrição (opcional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                   <Input type="number" step="0.01" min="0" placeholder={`Preço (${selectedStore?.currency || ""})`} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
                   <Input placeholder="Categoria (opcional)" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+
+                  <div className="space-y-2">
+                    <Label>Imagem do produto</Label>
+                    <div className="flex items-center gap-3">
+                      {form.image_url ? (
+                        <img src={form.image_url} alt="Produto" className="h-16 w-16 rounded-lg object-cover border" />
+                      ) : (
+                        <div className="h-16 w-16 rounded-lg border border-dashed flex items-center justify-center bg-muted">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="flex-1" />
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3">
                     <Switch checked={form.in_stock} onCheckedChange={(v) => setForm({ ...form, in_stock: v })} />
                     <Label>Em stock</Label>
                   </div>
-                  <Button type="submit" className="w-full" disabled={upsertMutation.isPending}>
-                    {upsertMutation.isPending ? "A guardar..." : editId ? "Atualizar" : "Adicionar Produto"}
+                  <Button type="submit" className="w-full" disabled={upsertMutation.isPending || uploading}>
+                    {uploading ? <><Upload className="h-4 w-4 mr-2 animate-pulse" /> A carregar...</> : upsertMutation.isPending ? "A guardar..." : editId ? "Atualizar" : "Adicionar Produto"}
                   </Button>
                 </form>
               </DialogContent>
