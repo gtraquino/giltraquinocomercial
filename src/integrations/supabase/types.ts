@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           in_stock: boolean
           name: string
           price: number
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           in_stock?: boolean
           name: string
           price: number
@@ -42,6 +44,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           in_stock?: boolean
           name?: string
           price?: number
@@ -60,31 +63,40 @@ export type Database = {
       }
       stores: {
         Row: {
+          accent_color: string | null
           created_at: string
           created_by: string | null
           currency: string
           id: string
+          logo_url: string | null
           name: string
+          primary_color: string | null
           type: string
           updated_at: string
           whatsapp: string
         }
         Insert: {
+          accent_color?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
           id?: string
+          logo_url?: string | null
           name: string
+          primary_color?: string | null
           type: string
           updated_at?: string
           whatsapp: string
         }
         Update: {
+          accent_color?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
           id?: string
+          logo_url?: string | null
           name?: string
+          primary_color?: string | null
           type?: string
           updated_at?: string
           whatsapp?: string

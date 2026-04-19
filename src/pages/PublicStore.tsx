@@ -30,6 +30,7 @@ type StoreProduct = {
   description: string | null;
   price: number;
   category: string | null;
+  image_url: string | null;
 };
 
 export default function PublicStore() {
@@ -134,13 +135,23 @@ export default function PublicStore() {
 
   const categories = [...new Set(products.map((p) => p.category || "Outros"))];
 
+  const themeStyle = (store.primary_color || store.accent_color) ? {
+    ["--primary" as any]: store.primary_color || undefined,
+    ["--accent" as any]: store.accent_color || store.primary_color || undefined,
+    ["--ring" as any]: store.primary_color || undefined,
+  } as React.CSSProperties : undefined;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={themeStyle}>
       {/* Hero */}
       <div className="bg-primary text-primary-foreground px-4 py-10 md:py-16">
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-foreground/10">
-            <Store className="h-8 w-8" />
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/10 overflow-hidden">
+            {store.logo_url ? (
+              <img src={store.logo_url} alt={store.name} className="h-full w-full object-cover" />
+            ) : (
+              <Store className="h-8 w-8" />
+            )}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">{store.name}</h1>
           <p className="text-primary-foreground/80 capitalize">{store.type} • {store.currency}</p>
@@ -164,11 +175,18 @@ export default function PublicStore() {
                     return (
                       <Card
                         key={p.id}
-                        className="hover:shadow-md transition-shadow cursor-pointer"
+                        className="hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
                         onClick={() => openProduct(p as StoreProduct)}
                       >
-                        <CardContent className="p-4 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
+                        <CardContent className="p-3 flex items-center gap-3">
+                          {p.image_url ? (
+                            <img src={p.image_url} alt={p.name} className="h-16 w-16 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
                             <h3 className="font-medium truncate">{p.name}</h3>
                             {p.description && <p className="text-sm text-muted-foreground line-clamp-1">{p.description}</p>}
                             <p className="text-sm font-semibold mt-1">{Number(p.price).toFixed(2)} {store.currency}</p>
@@ -218,6 +236,9 @@ export default function PublicStore() {
               </DialogHeader>
 
               <div className="space-y-4 py-2">
+                {selected.image_url && (
+                  <img src={selected.image_url} alt={selected.name} className="w-full h-48 object-cover rounded-lg" />
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Preço unitário</span>
                   <span className="font-semibold">
