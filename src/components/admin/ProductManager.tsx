@@ -12,6 +12,8 @@ import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { uploadStoreAsset } from "@/lib/imageUpload";
+import { ImageIcon, Upload } from "lucide-react";
 
 interface ProductForm {
   name: string;
@@ -19,9 +21,10 @@ interface ProductForm {
   price: string;
   category: string;
   in_stock: boolean;
+  image_url: string;
 }
 
-const emptyForm: ProductForm = { name: "", description: "", price: "", category: "", in_stock: true };
+const emptyForm: ProductForm = { name: "", description: "", price: "", category: "", in_stock: true, image_url: "" };
 
 export default function ProductManager() {
   const queryClient = useQueryClient();
