@@ -21,9 +21,31 @@ export default function ResetPassword() {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    (async () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      const errorDesc = url.searchParams.get("error_description") || url.hash.match(/error_description=([^&]+)/)?.[1];
+
+      if (errorDesc) {
+        toast({ title: "Link inválido", description: decodeURIComponent(errorDesc), variant: "destructive" });
+        return;
+      }
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          toast({ title: "Erro", description: error.message, variant: "destructive" });
+          return;
+        }
+        setReady(true);
+        window.history.replaceState({}, "", "/reset-password");
+        return;
+      }
+
+      // Fallback: hash-based recovery tokens
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) setReady(true);
-    });
+    })();
 
     return () => subscription.unsubscribe();
   }, []);
