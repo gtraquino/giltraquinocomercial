@@ -116,8 +116,7 @@ export default function PublicStore() {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
     const msg = `Olá! Gostaria de fazer um pedido na loja *${store.name}*:\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
-    const link = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-    window.open(link, "_blank");
+    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
   };
 
   const isLoading = storeLoading || productsLoading;
