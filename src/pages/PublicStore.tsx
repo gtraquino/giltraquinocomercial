@@ -83,13 +83,22 @@ export default function PublicStore() {
     closeDialog();
   };
 
+  const openWhatsApp = (link: string) => {
+    const a = document.createElement("a");
+    a.href = link;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const orderNow = () => {
     if (!selected || !store) return;
     const phone = store.whatsapp.replace(/[^0-9]/g, "");
     const lineTotal = Number(selected.price) * qty;
     const msg = `Olá! Gostaria de encomendar na loja *${store.name}*:\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
-    const link = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-    window.open(link, "_blank");
+    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
     closeDialog();
   };
 
