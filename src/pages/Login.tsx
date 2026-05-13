@@ -13,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim().toLowerCase() === "admin"
@@ -59,6 +60,24 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!normalizedEmail) {
+      toast({ title: "E-mail necessário", description: "Introduza o e-mail primeiro.", variant: "destructive" });
+      return;
+    }
+    setResetting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetting(false);
+
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "E-mail enviado", description: "Verifique a sua caixa de entrada para redefinir a palavra-passe." });
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-xl border-0">
@@ -95,6 +114,16 @@ export default function Login() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "A processar..." : isSignUp ? "Registar" : "Entrar"}
             </Button>
+            {!isSignUp && (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={resetting}
+                className="w-full text-sm text-muted-foreground hover:text-primary hover:underline"
+              >
+                {resetting ? "A enviar..." : "Esqueci-me da palavra-passe"}
+              </button>
+            )}
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
             {isSignUp ? "Já tem conta?" : "Não tem conta?"}{" "}
