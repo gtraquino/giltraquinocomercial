@@ -18,13 +18,14 @@ interface StoreForm {
   type: "comercial" | "restaurante";
   currency: "Kz" | "USD";
   whatsapp: string;
+  whatsapp_2: string;
   logo_url: string;
   primary_color: string;
   accent_color: string;
 }
 
 const emptyForm: StoreForm = {
-  name: "", type: "comercial", currency: "Kz", whatsapp: "",
+  name: "", type: "comercial", currency: "Kz", whatsapp: "", whatsapp_2: "",
   logo_url: "", primary_color: "", accent_color: "",
 };
 
@@ -49,6 +50,7 @@ export default function StoreManager() {
     mutationFn: async (data: StoreForm & { id?: string }) => {
       const payload = {
         name: data.name, type: data.type, currency: data.currency, whatsapp: data.whatsapp,
+        whatsapp_2: data.whatsapp_2 || null,
         logo_url: data.logo_url || null,
         primary_color: data.primary_color || null,
         accent_color: data.accent_color || null,
@@ -135,6 +137,7 @@ export default function StoreManager() {
       type: store.type as "comercial" | "restaurante",
       currency: store.currency as "Kz" | "USD",
       whatsapp: store.whatsapp,
+      whatsapp_2: (store as any).whatsapp_2 || "",
       logo_url: store.logo_url || "",
       primary_color: store.primary_color || "",
       accent_color: store.accent_color || "",
@@ -179,7 +182,14 @@ export default function StoreManager() {
                   <SelectItem value="USD">USD (Dólar)</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="WhatsApp (ex: 244923456789)" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required />
+              <div className="space-y-2">
+                <Label>WhatsApp principal (recebe pedidos)</Label>
+                <Input placeholder="Ex: 244923456789" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>WhatsApp secundário (opcional, também recebe)</Label>
+                <Input placeholder="Ex: 244987654321" value={form.whatsapp_2} onChange={(e) => setForm({ ...form, whatsapp_2: e.target.value })} />
+              </div>
 
               {/* Logo upload */}
               <div className="space-y-2">

@@ -74,6 +74,7 @@ export type Database = {
           type: string
           updated_at: string
           whatsapp: string
+          whatsapp_2: string | null
         }
         Insert: {
           accent_color?: string | null
@@ -87,6 +88,7 @@ export type Database = {
           type: string
           updated_at?: string
           whatsapp: string
+          whatsapp_2?: string | null
         }
         Update: {
           accent_color?: string | null
@@ -100,6 +102,7 @@ export type Database = {
           type?: string
           updated_at?: string
           whatsapp?: string
+          whatsapp_2?: string | null
         }
         Relationships: []
       }

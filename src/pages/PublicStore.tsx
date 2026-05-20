@@ -70,6 +70,9 @@ export default function PublicStore() {
     setQty(1);
   };
 
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+
   const saveToCart = () => {
     if (!selected) return;
     setCart((prev) => {
@@ -83,9 +86,10 @@ export default function PublicStore() {
     closeDialog();
   };
 
-  const openWhatsApp = (link: string) => {
+  const openWhatsApp = (phone: string, text: string) => {
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     const a = document.createElement("a");
-    a.href = link;
+    a.href = url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);
@@ -93,12 +97,39 @@ export default function PublicStore() {
     document.body.removeChild(a);
   };
 
+  const validateCustomer = (): boolean => {
+    if (!customerName.trim() || customerName.trim().length < 2) {
+      toast({ title: "Indique o seu nome", variant: "destructive" });
+      return false;
+    }
+    const digits = customerPhone.replace(/[^0-9]/g, "");
+    if (digits.length < 7) {
+      toast({ title: "Indique um contacto válido", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
+  const sendToAllNumbers = (msg: string) => {
+    if (!store) return;
+    const phones = [store.whatsapp, (store as any).whatsapp_2]
+      .filter((p): p is string => !!p && p.trim().length > 0)
+      .map((p) => p.replace(/[^0-9]/g, ""))
+      .filter((p) => p.length > 0);
+    if (phones.length === 0) return;
+    openWhatsApp(phones[0], msg);
+    // Abre conversas extra com pequeno atraso para evitar bloqueio de popup
+    phones.slice(1).forEach((p, i) => {
+      setTimeout(() => openWhatsApp(p, msg), 600 * (i + 1));
+    });
+  };
+
   const orderNow = () => {
     if (!selected || !store) return;
-    const phone = store.whatsapp.replace(/[^0-9]/g, "");
+    if (!validateCustomer()) return;
     const lineTotal = Number(selected.price) * qty;
-    const msg = `Olá! Gostaria de encomendar na loja *${store.name}*:\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
-    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
+    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+    sendToAllNumbers(msg);
     closeDialog();
   };
 
@@ -110,13 +141,13 @@ export default function PublicStore() {
 
   const sendCartOrder = () => {
     if (!store || cart.length === 0) return;
-    const phone = store.whatsapp.replace(/[^0-9]/g, "");
+    if (!validateCustomer()) return;
     let items = "";
     cart.forEach((c) => {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
-    const msg = `Olá! Gostaria de fazer um pedido na loja *${store.name}*:\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
-    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
+    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+    sendToAllNumbers(msg);
   };
 
   const isLoading = storeLoading || productsLoading;
@@ -217,15 +248,32 @@ export default function PublicStore() {
         {/* Cart summary */}
         {cart.length > 0 && (
           <div className="fixed bottom-0 inset-x-0 bg-card border-t shadow-lg p-4 z-40">
-            <div className="mx-auto max-w-4xl flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
-                <p className="text-lg font-bold">{total.toFixed(2)} {store.currency}</p>
+            <div className="mx-auto max-w-4xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="O seu nome *"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  maxLength={80}
+                />
+                <Input
+                  type="tel"
+                  placeholder="O seu contacto *"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  maxLength={20}
+                />
               </div>
-              <Button onClick={sendCartOrder} size="lg" className="gap-2">
-                <MessageCircle className="h-5 w-5" />
-                Encomendar via WhatsApp
-              </Button>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
+                  <p className="text-lg font-bold">{total.toFixed(2)} {store.currency}</p>
+                </div>
+                <Button onClick={sendCartOrder} size="lg" className="gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Encomendar via WhatsApp
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -289,6 +337,27 @@ export default function PublicStore() {
                   <span className="text-lg font-bold">
                     {(Number(selected.price) * qty).toFixed(2)} {store.currency}
                   </span>
+                </div>
+
+                <div className="space-y-2 border-t pt-3">
+                  <Label htmlFor="cust-name">O seu nome *</Label>
+                  <Input
+                    id="cust-name"
+                    placeholder="Nome completo"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    maxLength={80}
+                  />
+                  <Label htmlFor="cust-phone">O seu contacto *</Label>
+                  <Input
+                    id="cust-phone"
+                    type="tel"
+                    placeholder="Ex: 244923456789"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-muted-foreground">Obrigatório para enviar o pedido via WhatsApp.</p>
                 </div>
               </div>
 
