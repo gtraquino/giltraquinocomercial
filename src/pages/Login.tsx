@@ -16,9 +16,7 @@ export default function Login() {
   const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const normalizedEmail = email.trim().toLowerCase() === "admin"
-    ? "g.traquino66@gmail.com"
-    : email.trim();
+  const normalizedEmail = email.trim();
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -97,8 +95,8 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              type="text"
-              placeholder="E-mail ou Admin"
+              type="email"
+              placeholder="E-mail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

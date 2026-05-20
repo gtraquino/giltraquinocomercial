@@ -23,6 +23,7 @@ export default function Admin() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" /> },
