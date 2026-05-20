@@ -141,13 +141,13 @@ export default function PublicStore() {
 
   const sendCartOrder = () => {
     if (!store || cart.length === 0) return;
-    const phone = store.whatsapp.replace(/[^0-9]/g, "");
+    if (!validateCustomer()) return;
     let items = "";
     cart.forEach((c) => {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
-    const msg = `Olá! Gostaria de fazer um pedido na loja *${store.name}*:\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
-    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
+    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+    sendToAllNumbers(msg);
   };
 
   const isLoading = storeLoading || productsLoading;
