@@ -18,13 +18,14 @@ interface StoreForm {
   type: "comercial" | "restaurante";
   currency: "Kz" | "USD";
   whatsapp: string;
+  whatsapp_2: string;
   logo_url: string;
   primary_color: string;
   accent_color: string;
 }
 
 const emptyForm: StoreForm = {
-  name: "", type: "comercial", currency: "Kz", whatsapp: "",
+  name: "", type: "comercial", currency: "Kz", whatsapp: "", whatsapp_2: "",
   logo_url: "", primary_color: "", accent_color: "",
 };
 
