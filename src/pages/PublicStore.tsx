@@ -281,7 +281,7 @@ export default function PublicStore() {
 
       {/* Product action dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && closeDialog()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto pb-20 sm:pb-6">
           {selected && (
             <>
               <DialogHeader>
