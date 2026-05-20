@@ -137,6 +137,7 @@ export default function StoreManager() {
       type: store.type as "comercial" | "restaurante",
       currency: store.currency as "Kz" | "USD",
       whatsapp: store.whatsapp,
+      whatsapp_2: (store as any).whatsapp_2 || "",
       logo_url: store.logo_url || "",
       primary_color: store.primary_color || "",
       accent_color: store.accent_color || "",
