@@ -70,6 +70,9 @@ export default function PublicStore() {
     setQty(1);
   };
 
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+
   const saveToCart = () => {
     if (!selected) return;
     setCart((prev) => {
@@ -83,9 +86,10 @@ export default function PublicStore() {
     closeDialog();
   };
 
-  const openWhatsApp = (link: string) => {
+  const openWhatsApp = (phone: string, text: string) => {
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     const a = document.createElement("a");
-    a.href = link;
+    a.href = url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);
@@ -93,12 +97,39 @@ export default function PublicStore() {
     document.body.removeChild(a);
   };
 
+  const validateCustomer = (): boolean => {
+    if (!customerName.trim() || customerName.trim().length < 2) {
+      toast({ title: "Indique o seu nome", variant: "destructive" });
+      return false;
+    }
+    const digits = customerPhone.replace(/[^0-9]/g, "");
+    if (digits.length < 7) {
+      toast({ title: "Indique um contacto válido", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
+  const sendToAllNumbers = (msg: string) => {
+    if (!store) return;
+    const phones = [store.whatsapp, (store as any).whatsapp_2]
+      .filter((p): p is string => !!p && p.trim().length > 0)
+      .map((p) => p.replace(/[^0-9]/g, ""))
+      .filter((p) => p.length > 0);
+    if (phones.length === 0) return;
+    openWhatsApp(phones[0], msg);
+    // Abre conversas extra com pequeno atraso para evitar bloqueio de popup
+    phones.slice(1).forEach((p, i) => {
+      setTimeout(() => openWhatsApp(p, msg), 600 * (i + 1));
+    });
+  };
+
   const orderNow = () => {
     if (!selected || !store) return;
-    const phone = store.whatsapp.replace(/[^0-9]/g, "");
+    if (!validateCustomer()) return;
     const lineTotal = Number(selected.price) * qty;
-    const msg = `Olá! Gostaria de encomendar na loja *${store.name}*:\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
-    openWhatsApp(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
+    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+    sendToAllNumbers(msg);
     closeDialog();
   };
 
