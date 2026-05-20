@@ -321,6 +321,27 @@ export default function PublicStore() {
                     {(Number(selected.price) * qty).toFixed(2)} {store.currency}
                   </span>
                 </div>
+
+                <div className="space-y-2 border-t pt-3">
+                  <Label htmlFor="cust-name">O seu nome *</Label>
+                  <Input
+                    id="cust-name"
+                    placeholder="Nome completo"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    maxLength={80}
+                  />
+                  <Label htmlFor="cust-phone">O seu contacto *</Label>
+                  <Input
+                    id="cust-phone"
+                    type="tel"
+                    placeholder="Ex: 244923456789"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-muted-foreground">Obrigatório para enviar o pedido via WhatsApp.</p>
+                </div>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
