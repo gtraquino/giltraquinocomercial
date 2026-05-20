@@ -1,0 +1,123 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
+import { Users, Trash2, Plus } from "lucide-react";
+
+interface Props {
+  storeId: string;
+  storeName: string;
+}
+
+interface Manager {
+  id: string;
+  user_id: string;
+  email: string;
+  created_at: string;
+}
+
+export default function ManagersDialog({ storeId, storeName }: Props) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const qc = useQueryClient();
+
+  const { data: managers = [], isLoading } = useQuery({
+    queryKey: ["store-managers", storeId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
+        body: { action: "list", store_id: storeId },
+      });
+      if (error) throw error;
+      return (data?.managers ?? []) as Manager[];
+    },
+    enabled: open,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (em: string) => {
+      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
+        body: { action: "add", email: em, store_id: storeId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["store-managers", storeId] });
+      setEmail("");
+      toast({ title: "Gestor adicionado" });
+    },
+    onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (em: string) => {
+      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
+        body: { action: "remove", email: em, store_id: storeId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["store-managers", storeId] });
+      toast({ title: "Gestor removido" });
+    },
+    onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1">
+          <Users className="h-3 w-3" /> Gestores
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Gestores de "{storeName}"</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Adicionar gestor por email</Label>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && email) addMutation.mutate(email); }}
+              />
+              <Button onClick={() => addMutation.mutate(email)} disabled={!email || addMutation.isPending} className="gap-1">
+                <Plus className="h-4 w-4" /> Adicionar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">O utilizador tem de já ter conta criada.</p>
+          </div>
+
+          <div className="border-t pt-4">
+            <Label className="text-xs text-muted-foreground">Gestores atuais</Label>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground mt-2">A carregar...</p>
+            ) : managers.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-2">Nenhum gestor atribuído.</p>
+            ) : (
+              <ul className="mt-2 space-y-1">
+                {managers.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                    <span>{m.email}</span>
+                    <Button variant="ghost" size="icon" onClick={() => removeMutation.mutate(m.email)} disabled={removeMutation.isPending}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
