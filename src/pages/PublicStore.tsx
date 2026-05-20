@@ -248,15 +248,32 @@ export default function PublicStore() {
         {/* Cart summary */}
         {cart.length > 0 && (
           <div className="fixed bottom-0 inset-x-0 bg-card border-t shadow-lg p-4 z-40">
-            <div className="mx-auto max-w-4xl flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
-                <p className="text-lg font-bold">{total.toFixed(2)} {store.currency}</p>
+            <div className="mx-auto max-w-4xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="O seu nome *"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  maxLength={80}
+                />
+                <Input
+                  type="tel"
+                  placeholder="O seu contacto *"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  maxLength={20}
+                />
               </div>
-              <Button onClick={sendCartOrder} size="lg" className="gap-2">
-                <MessageCircle className="h-5 w-5" />
-                Encomendar via WhatsApp
-              </Button>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
+                  <p className="text-lg font-bold">{total.toFixed(2)} {store.currency}</p>
+                </div>
+                <Button onClick={sendCartOrder} size="lg" className="gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Encomendar via WhatsApp
+                </Button>
+              </div>
             </div>
           </div>
         )}
