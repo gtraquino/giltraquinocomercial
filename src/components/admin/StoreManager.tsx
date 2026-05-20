@@ -182,7 +182,14 @@ export default function StoreManager() {
                   <SelectItem value="USD">USD (Dólar)</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="WhatsApp (ex: 244923456789)" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required />
+              <div className="space-y-2">
+                <Label>WhatsApp principal (recebe pedidos)</Label>
+                <Input placeholder="Ex: 244923456789" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>WhatsApp secundário (opcional, também recebe)</Label>
+                <Input placeholder="Ex: 244987654321" value={form.whatsapp_2} onChange={(e) => setForm({ ...form, whatsapp_2: e.target.value })} />
+              </div>
 
               {/* Logo upload */}
               <div className="space-y-2">
