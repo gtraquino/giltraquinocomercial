@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      orders: {
+        Row: {
+          created_at: string
+          currency: string
+          customer_name: string
+          customer_phone: string
+          id: string
+          items: Json
+          store_id: string
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          customer_name: string
+          customer_phone: string
+          id?: string
+          items?: Json
+          store_id: string
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          items?: Json
+          store_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null
@@ -54,6 +95,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_managers: {
+        Row: {
+          created_at: string
+          id: string
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_managers_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
@@ -134,6 +204,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_store_manager: {
+        Args: { _store_id: string; _user_id: string }
         Returns: boolean
       }
     }

@@ -118,17 +118,33 @@ export default function PublicStore() {
       .filter((p) => p.length > 0);
     if (phones.length === 0) return;
     openWhatsApp(phones[0], msg);
-    // Abre conversas extra com pequeno atraso para evitar bloqueio de popup
     phones.slice(1).forEach((p, i) => {
       setTimeout(() => openWhatsApp(p, msg), 600 * (i + 1));
     });
   };
 
-  const orderNow = () => {
+  const persistOrder = async (items: CartItem[], total: number) => {
+    if (!store) return;
+    const { error } = await supabase.from("orders").insert({
+      store_id: store.id,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim(),
+      items: items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })) as any,
+      total,
+      currency: store.currency,
+    });
+    if (error) {
+      toast({ title: "Aviso", description: "Pedido enviado mas não foi possível gravar para relatório.", variant: "destructive" });
+    }
+  };
+
+  const orderNow = async () => {
     if (!selected || !store) return;
     if (!validateCustomer()) return;
     const lineTotal = Number(selected.price) * qty;
+    const item: CartItem = { id: selected.id, name: selected.name, price: Number(selected.price), qty };
     const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+    await persistOrder([item], lineTotal);
     sendToAllNumbers(msg);
     closeDialog();
   };
@@ -139,7 +155,7 @@ export default function PublicStore() {
 
   const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
 
-  const sendCartOrder = () => {
+  const sendCartOrder = async () => {
     if (!store || cart.length === 0) return;
     if (!validateCustomer()) return;
     let items = "";
@@ -147,6 +163,7 @@ export default function PublicStore() {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
     const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+    await persistOrder(cart, total);
     sendToAllNumbers(msg);
   };
 

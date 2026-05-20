@@ -12,6 +12,7 @@ import { Plus, Pencil, Trash2, Store, Upload, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { uploadStoreAsset } from "@/lib/imageUpload";
 import { extractColorsFromImage } from "@/lib/colorExtract";
+import ManagersDialog from "@/components/admin/ManagersDialog";
 
 interface StoreForm {
   name: string;
@@ -285,10 +286,11 @@ export default function StoreManager() {
                   <span>Moeda: <strong className="text-foreground">{store.currency}</strong></span>
                   <span>WhatsApp: <strong className="text-foreground">{store.whatsapp}</strong></span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(store)}>
                     <Pencil className="h-3 w-3" /> Editar
                   </Button>
+                  <ManagersDialog storeId={store.id} storeName={store.name} />
                   <Button
                     variant="outline"
                     size="sm"
