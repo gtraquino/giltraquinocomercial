@@ -50,6 +50,7 @@ export default function StoreManager() {
     mutationFn: async (data: StoreForm & { id?: string }) => {
       const payload = {
         name: data.name, type: data.type, currency: data.currency, whatsapp: data.whatsapp,
+        whatsapp_2: data.whatsapp_2 || null,
         logo_url: data.logo_url || null,
         primary_color: data.primary_color || null,
         accent_color: data.accent_color || null,
