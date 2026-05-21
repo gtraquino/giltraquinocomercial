@@ -84,8 +84,24 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
           <DialogTitle>Gestores de "{storeName}"</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs space-y-2">
+            <p className="font-semibold text-foreground">Como criar um gestor</p>
+            <ol className="list-decimal pl-4 space-y-1 text-muted-foreground">
+              <li>
+                Peça ao futuro gestor para abrir{" "}
+                <a href="/login" target="_blank" rel="noreferrer" className="text-primary underline">/login</a>
+                {" "}e clicar em <strong>"Criar conta"</strong> com o email dele.
+              </li>
+              <li>Ele confirma o email recebido na caixa de entrada.</li>
+              <li>Depois, introduza aqui em baixo o mesmo email para o associar a esta loja.</li>
+            </ol>
+            <p className="text-muted-foreground">
+              Por segurança, só o próprio utilizador define a palavra-passe — o admin não a cria por ele.
+            </p>
+          </div>
+
           <div className="space-y-2">
-            <Label>Adicionar gestor por email</Label>
+            <Label>Associar gestor existente</Label>
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -98,7 +114,6 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
                 <Plus className="h-4 w-4" /> Adicionar
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">O utilizador tem de já ter conta criada.</p>
           </div>
 
           <div className="border-t pt-4">
