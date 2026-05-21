@@ -16,6 +16,8 @@ export default function OrdersReport() {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState<string>(today);
   const [storeId, setStoreId] = useState<string>("");
+  const [customerName, setCustomerName] = useState<string>("");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
 
   // Stores visible to this user: admins see all; managers see only their managed ones
   const { data: stores = [] } = useQuery({
@@ -39,7 +41,7 @@ export default function OrdersReport() {
 
   const selectedStore = useMemo(() => stores.find((s) => s.id === storeId), [stores, storeId]);
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: ordersAll = [], isLoading, refetch } = useQuery({
     queryKey: ["orders-report", storeId, date],
     queryFn: async () => {
       const start = new Date(`${date}T00:00:00`).toISOString();
@@ -56,6 +58,18 @@ export default function OrdersReport() {
     },
     enabled: !!storeId && !!date,
   });
+
+  const normalize = (s: string) => s.toLowerCase().trim();
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const orders = useMemo(() => {
+    const n = normalize(customerName);
+    const p = digits(customerPhone);
+    return ordersAll.filter((o) => {
+      const okName = !n || normalize(o.customer_name || "").includes(n);
+      const okPhone = !p || digits(o.customer_phone || "").includes(p);
+      return okName && okPhone;
+    });
+  }, [ordersAll, customerName, customerPhone]);
 
   const grandTotal = orders.reduce((s, o) => s + Number(o.total), 0);
 
@@ -81,7 +95,7 @@ export default function OrdersReport() {
         <CardHeader>
           <CardTitle className="text-base">Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label>Loja</Label>
             <Select value={storeId} onValueChange={setStoreId}>
@@ -97,13 +111,24 @@ export default function OrdersReport() {
             <Label>Data</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} max={today} />
           </div>
-          <div className="flex items-end gap-2">
+          <div className="space-y-2">
+            <Label>Nome do cliente</Label>
+            <Input placeholder="Filtrar por nome" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Telefone</Label>
+            <Input placeholder="Filtrar por telefone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+          </div>
+          <div className="flex items-end gap-2 lg:col-span-4">
             <Button onClick={() => handleExport("pdf")} disabled={!storeId || orders.length === 0} className="gap-2 flex-1">
               <FileDown className="h-4 w-4" /> PDF
             </Button>
             <Button onClick={() => handleExport("docx")} disabled={!storeId || orders.length === 0} variant="secondary" className="gap-2 flex-1">
               <FileText className="h-4 w-4" /> Word
             </Button>
+            {(customerName || customerPhone) && (
+              <Button variant="ghost" onClick={() => { setCustomerName(""); setCustomerPhone(""); }}>Limpar filtros</Button>
+            )}
           </div>
         </CardContent>
       </Card>
