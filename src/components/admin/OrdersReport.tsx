@@ -41,7 +41,7 @@ export default function OrdersReport() {
 
   const selectedStore = useMemo(() => stores.find((s) => s.id === storeId), [stores, storeId]);
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: ordersAll = [], isLoading, refetch } = useQuery({
     queryKey: ["orders-report", storeId, date],
     queryFn: async () => {
       const start = new Date(`${date}T00:00:00`).toISOString();
@@ -58,6 +58,18 @@ export default function OrdersReport() {
     },
     enabled: !!storeId && !!date,
   });
+
+  const normalize = (s: string) => s.toLowerCase().trim();
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const orders = useMemo(() => {
+    const n = normalize(customerName);
+    const p = digits(customerPhone);
+    return ordersAll.filter((o) => {
+      const okName = !n || normalize(o.customer_name || "").includes(n);
+      const okPhone = !p || digits(o.customer_phone || "").includes(p);
+      return okName && okPhone;
+    });
+  }, [ordersAll, customerName, customerPhone]);
 
   const grandTotal = orders.reduce((s, o) => s + Number(o.total), 0);
 
