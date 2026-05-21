@@ -88,24 +88,14 @@ Deno.serve(async (req) => {
       return json({ error: "Email obrigatório" }, 400);
     }
 
-    // Find user by email
-    let targetUserId: string | null = null;
-    let page = 1;
-    while (!targetUserId && page < 20) {
-      const { data: list, error: listErr } = await admin.auth.admin.listUsers({
-        page,
-        perPage: 200,
-      });
-      if (listErr) {
-        console.error("listUsers error", listErr);
-        return json({ error: "Erro a procurar utilizador: " + listErr.message }, 500);
-      }
-      const found = list.users.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase(),
-      );
-      if (found) targetUserId = found.id;
-      if (list.users.length < 200) break;
-      page++;
+    // Find user by email via SECURITY DEFINER RPC (exact match in auth.users)
+    const { data: targetUserId, error: lookupErr } = await admin.rpc(
+      "get_user_id_by_email",
+      { _email: email.trim() },
+    );
+    if (lookupErr) {
+      console.error("get_user_id_by_email error", lookupErr);
+      return json({ error: "Erro a procurar utilizador: " + lookupErr.message }, 500);
     }
     if (!targetUserId) {
       return json(
