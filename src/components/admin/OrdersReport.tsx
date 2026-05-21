@@ -16,6 +16,8 @@ export default function OrdersReport() {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState<string>(today);
   const [storeId, setStoreId] = useState<string>("");
+  const [customerName, setCustomerName] = useState<string>("");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
 
   // Stores visible to this user: admins see all; managers see only their managed ones
   const { data: stores = [] } = useQuery({
