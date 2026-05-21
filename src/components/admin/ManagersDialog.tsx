@@ -25,26 +25,36 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
   const [email, setEmail] = useState("");
   const qc = useQueryClient();
 
+  const invoke = async (payload: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("assign-store-manager", {
+      body: payload,
+    });
+    if (error) {
+      let msg = error.message;
+      const ctx = (error as any).context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+      }
+      throw new Error(msg);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const { data: managers = [], isLoading } = useQuery({
     queryKey: ["store-managers", storeId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
-        body: { action: "list", store_id: storeId },
-      });
-      if (error) throw error;
+      const data = await invoke({ action: "list", store_id: storeId });
       return (data?.managers ?? []) as Manager[];
     },
     enabled: open,
   });
 
   const addMutation = useMutation({
-    mutationFn: async (em: string) => {
-      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
-        body: { action: "add", email: em, store_id: storeId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
+    mutationFn: (em: string) => invoke({ action: "add", email: em, store_id: storeId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["store-managers", storeId] });
       setEmail("");
@@ -54,13 +64,7 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
   });
 
   const removeMutation = useMutation({
-    mutationFn: async (em: string) => {
-      const { data, error } = await supabase.functions.invoke("assign-store-manager", {
-        body: { action: "remove", email: em, store_id: storeId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
+    mutationFn: (em: string) => invoke({ action: "remove", email: em, store_id: storeId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["store-managers", storeId] });
       toast({ title: "Gestor removido" });
