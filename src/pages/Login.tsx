@@ -16,7 +16,7 @@ export default function Login() {
   const [resetting, setResetting] = useState(false);
   const [justSignedIn, setJustSignedIn] = useState(false);
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim();
 
   // Ao abrir /login, terminar qualquer sessão persistida para forçar autenticação
@@ -26,12 +26,12 @@ export default function Login() {
     });
   }, []);
 
-  // Redirecionar apenas após login explícito nesta página
+  // Redirecionar apenas após login explícito: admin → /admin, gestor → /manager
   useEffect(() => {
     if (justSignedIn && !authLoading && user) {
-      navigate("/admin", { replace: true });
+      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
     }
-  }, [justSignedIn, authLoading, navigate, user]);
+  }, [justSignedIn, authLoading, navigate, user, isAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
