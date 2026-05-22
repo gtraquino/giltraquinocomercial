@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
+import Manager from "./pages/Manager";
 import PublicStore from "./pages/PublicStore";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/manager" element={<Manager />} />
             <Route path="/loja/:storeId" element={<PublicStore />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
