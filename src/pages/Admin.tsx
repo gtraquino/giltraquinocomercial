@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Store, Package, Link2, LogOut, Menu, X, FileText } from "lucide-react";
@@ -14,23 +12,10 @@ type Tab = "stores" | "products" | "links" | "reports";
 
 export default function Admin() {
   const { user, isAdmin, loading, signOut } = useAuth();
-  const [tab, setTab] = useState<Tab>(isAdmin ? "stores" : "reports");
+  const [tab, setTab] = useState<Tab>("stores");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { data: managedCount = 0, isLoading: mgrLoading } = useQuery({
-    queryKey: ["my-managed-stores", user?.id],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("store_managers")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!user && !isAdmin,
-  });
-
-  if (loading || (user && !isAdmin && mgrLoading)) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -39,15 +24,14 @@ export default function Admin() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!isAdmin && managedCount === 0) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/manager" replace />;
 
-  const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
-    { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" />, adminOnly: true },
-    { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" />, adminOnly: true },
-    { id: "links", label: "Links WhatsApp", icon: <Link2 className="h-4 w-4" />, adminOnly: true },
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" /> },
+    { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
+    { id: "links", label: "Links WhatsApp", icon: <Link2 className="h-4 w-4" /> },
     { id: "reports", label: "Relatórios", icon: <FileText className="h-4 w-4" /> },
   ];
-  const tabs = allTabs.filter((t) => isAdmin || !t.adminOnly);
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,7 +41,7 @@ export default function Admin() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Store className="h-5 w-5" />
             </div>
-            <span className="font-bold text-lg hidden sm:block">Painel {isAdmin ? "Admin" : "Gestor"}</span>
+            <span className="font-bold text-lg hidden sm:block">Painel Admin</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -72,9 +56,7 @@ export default function Admin() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground hidden sm:block">
               {user.email}
-              {isAdmin && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-accent/20 px-2 py-0.5 text-xs font-medium text-accent-foreground">Admin</span>
-              )}
+              <span className="ml-2 inline-flex items-center rounded-full bg-accent/20 px-2 py-0.5 text-xs font-medium text-accent-foreground">Admin</span>
             </span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
@@ -98,9 +80,9 @@ export default function Admin() {
       </header>
 
       <main className="mx-auto max-w-7xl p-4 md:p-6">
-        {tab === "stores" && isAdmin && <StoreManager />}
-        {tab === "products" && isAdmin && <ProductManager />}
-        {tab === "links" && isAdmin && <LinkGenerator />}
+        {tab === "stores" && <StoreManager />}
+        {tab === "products" && <ProductManager />}
+        {tab === "links" && <LinkGenerator />}
         {tab === "reports" && <OrdersReport />}
       </main>
     </div>
