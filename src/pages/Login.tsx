@@ -14,15 +14,24 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [justSignedIn, setJustSignedIn] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim();
 
+  // Ao abrir /login, terminar qualquer sessão persistida para forçar autenticação
   useEffect(() => {
-    if (!authLoading && user) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) supabase.auth.signOut();
+    });
+  }, []);
+
+  // Redirecionar apenas após login explícito nesta página
+  useEffect(() => {
+    if (justSignedIn && !authLoading && user) {
       navigate("/admin", { replace: true });
     }
-  }, [authLoading, navigate, user]);
+  }, [justSignedIn, authLoading, navigate, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
