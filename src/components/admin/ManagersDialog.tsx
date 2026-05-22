@@ -90,9 +90,9 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
               <li>
                 Peça ao futuro gestor para abrir{" "}
                 <a href="/login" target="_blank" rel="noreferrer" className="text-primary underline">/login</a>
-                {" "}e clicar em <strong>"Criar conta"</strong> com o email dele.
+                {" "}e clicar em <strong>"Criar conta"</strong> com o email e palavra-passe dele.
               </li>
-              <li>Ele confirma o email recebido na caixa de entrada.</li>
+              <li>A conta fica ativa de imediato (sem necessidade de confirmar email).</li>
               <li>Depois, introduza aqui em baixo o mesmo email para o associar a esta loja.</li>
             </ol>
             <p className="text-muted-foreground">
