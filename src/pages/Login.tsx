@@ -60,7 +60,7 @@ export default function Login() {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
         return;
       }
-
+      setJustSignedIn(true);
       toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
     } finally {
       setLoading(false);
