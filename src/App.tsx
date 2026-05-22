@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
+import Manager from "./pages/Manager";
 import PublicStore from "./pages/PublicStore";
 import NotFound from "./pages/NotFound";
 
