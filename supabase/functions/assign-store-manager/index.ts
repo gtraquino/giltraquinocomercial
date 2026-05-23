@@ -26,35 +26,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
     if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
-      console.error("Missing env", { hasUrl: !!SUPABASE_URL, hasService: !!SERVICE_KEY, hasAnon: !!ANON_KEY });
       return json({ error: "Configuração do servidor incompleta" }, 500);
     }
 
-    // Verify caller
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      console.error("getUser failed", userErr);
-      return json({ error: "Sessão inválida" }, 401);
-    }
+    if (userErr || !userData?.user) return json({ error: "Sessão inválida" }, 401);
 
     const { data: isAdmin, error: roleErr } = await userClient.rpc("has_role", {
       _user_id: userData.user.id,
       _role: "admin",
     });
-    if (roleErr) {
-      console.error("has_role error", roleErr);
-      return json({ error: "Erro a verificar permissão: " + roleErr.message }, 500);
-    }
+    if (roleErr) return json({ error: "Erro a verificar permissão: " + roleErr.message }, 500);
     if (!isAdmin) return json({ error: "Apenas admin" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const { email, store_id, action } = body as {
+    const { email, store_id, action, redirect_to } = body as {
       email?: string;
       store_id?: string;
       action?: "add" | "remove" | "list";
+      redirect_to?: string;
     };
 
     if (!store_id || !action) return json({ error: "Parâmetros em falta" }, 400);
@@ -66,17 +59,13 @@ Deno.serve(async (req) => {
         .from("store_managers")
         .select("id, user_id, created_at")
         .eq("store_id", store_id);
-      if (error) {
-        console.error("list managers error", error);
-        return json({ error: error.message }, 500);
-      }
+      if (error) return json({ error: error.message }, 500);
       const enriched = await Promise.all(
         (managers ?? []).map(async (m: any) => {
           try {
             const { data: u } = await admin.auth.admin.getUserById(m.user_id);
             return { ...m, email: u?.user?.email ?? "—" };
-          } catch (e) {
-            console.error("getUserById failed", m.user_id, e);
+          } catch {
             return { ...m, email: "—" };
           }
         }),
@@ -88,46 +77,66 @@ Deno.serve(async (req) => {
       return json({ error: "Email obrigatório" }, 400);
     }
 
-    // Find user by email via SECURITY DEFINER RPC (exact match in auth.users)
-    const { data: targetUserId, error: lookupErr } = await admin.rpc(
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Look up existing user
+    const { data: existingId, error: lookupErr } = await admin.rpc(
       "get_user_id_by_email",
-      { _email: email.trim() },
+      { _email: cleanEmail },
     );
-    if (lookupErr) {
-      console.error("get_user_id_by_email error", lookupErr);
-      return json({ error: "Erro a procurar utilizador: " + lookupErr.message }, 500);
-    }
-    if (!targetUserId) {
-      return json(
-        { error: "Utilizador não encontrado. Peça-lhe para criar conta primeiro em /login." },
-        404,
-      );
-    }
+    if (lookupErr) return json({ error: "Erro a procurar utilizador: " + lookupErr.message }, 500);
 
     if (action === "remove") {
+      if (!existingId) return json({ error: "Utilizador não encontrado" }, 404);
       const { error } = await admin
         .from("store_managers")
         .delete()
         .eq("store_id", store_id)
-        .eq("user_id", targetUserId);
-      if (error) {
-        console.error("remove error", error);
-        return json({ error: error.message }, 500);
-      }
+        .eq("user_id", existingId);
+      if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }
 
-    // add
-    const { error } = await admin
+    // action === "add": create user if needed, then associate
+    let targetUserId = existingId as string | null;
+    let created = false;
+
+    if (!targetUserId) {
+      // Generate a strong random temp password — manager will set their own via the recovery link
+      const tempPassword =
+        crypto.randomUUID().replace(/-/g, "") + "Aa1!";
+      const { data: createData, error: createErr } = await admin.auth.admin.createUser({
+        email: cleanEmail,
+        password: tempPassword,
+        email_confirm: true,
+      });
+      if (createErr || !createData?.user) {
+        return json({ error: "Erro a criar utilizador: " + (createErr?.message ?? "desconhecido") }, 500);
+      }
+      targetUserId = createData.user.id;
+      created = true;
+    }
+
+    const { error: insertErr } = await admin
       .from("store_managers")
       .insert({ store_id, user_id: targetUserId });
-    if (error && !error.message.toLowerCase().includes("duplicate")) {
-      console.error("insert error", error);
-      return json({ error: error.message }, 500);
+    if (insertErr && !insertErr.message.toLowerCase().includes("duplicate")) {
+      return json({ error: insertErr.message }, 500);
     }
-    return json({ ok: true, user_id: targetUserId });
+
+    // Generate a recovery link so the manager can set their own password
+    let recoveryLink: string | null = null;
+    try {
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+        type: "recovery",
+        email: cleanEmail,
+        options: { redirectTo: redirect_to || undefined },
+      });
+      if (!linkErr) recoveryLink = linkData?.properties?.action_link ?? null;
+    } catch { /* ignore */ }
+
+    return json({ ok: true, user_id: targetUserId, created, recovery_link: recoveryLink });
   } catch (e) {
-    console.error("unhandled", e);
     return json({ error: (e as Error).message ?? "Erro desconhecido" }, 500);
   }
 });
