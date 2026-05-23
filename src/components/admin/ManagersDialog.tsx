@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Users, Trash2, Plus } from "lucide-react";
+import { Users, Trash2, Plus, Copy, Check } from "lucide-react";
 
 interface Props {
   storeId: string;
@@ -23,6 +23,9 @@ interface Manager {
 export default function ManagersDialog({ storeId, storeName }: Props) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [lastLink, setLastLink] = useState<string | null>(null);
+  const [lastEmail, setLastEmail] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const qc = useQueryClient();
 
   const invoke = async (payload: Record<string, unknown>) => {
@@ -54,11 +57,25 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
   });
 
   const addMutation = useMutation({
-    mutationFn: (em: string) => invoke({ action: "add", email: em, store_id: storeId }),
-    onSuccess: () => {
+    mutationFn: (em: string) =>
+      invoke({
+        action: "add",
+        email: em,
+        store_id: storeId,
+        redirect_to: `${window.location.origin}/reset-password`,
+      }),
+    onSuccess: (data: any, em) => {
       qc.invalidateQueries({ queryKey: ["store-managers", storeId] });
       setEmail("");
-      toast({ title: "Gestor adicionado" });
+      setLastEmail(em);
+      setLastLink(data?.recovery_link ?? null);
+      setCopied(false);
+      toast({
+        title: data?.created ? "Gestor criado" : "Gestor associado",
+        description: data?.recovery_link
+          ? "Partilhe o link com o gestor para ele definir a palavra-passe."
+          : "Gestor associado à loja.",
+      });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
@@ -72,8 +89,15 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const copyLink = async () => {
+    if (!lastLink) return;
+    await navigator.clipboard.writeText(lastLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setLastLink(null); setLastEmail(null); } }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1">
           <Users className="h-3 w-3" /> Gestores
@@ -84,24 +108,16 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
           <DialogTitle>Gestores de "{storeName}"</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs space-y-2">
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs space-y-1">
             <p className="font-semibold text-foreground">Como criar um gestor</p>
-            <ol className="list-decimal pl-4 space-y-1 text-muted-foreground">
-              <li>
-                Peça ao futuro gestor para abrir{" "}
-                <a href="/login" target="_blank" rel="noreferrer" className="text-primary underline">/login</a>
-                {" "}e clicar em <strong>"Criar conta"</strong> com o email e palavra-passe dele.
-              </li>
-              <li>A conta fica ativa de imediato (sem necessidade de confirmar email).</li>
-              <li>Depois, introduza aqui em baixo o mesmo email para o associar a esta loja.</li>
-            </ol>
             <p className="text-muted-foreground">
-              Por segurança, só o próprio utilizador define a palavra-passe — o admin não a cria por ele.
+              Introduza o email do gestor abaixo. A conta é criada automaticamente (sem confirmação por email)
+              e receberá um link para o gestor definir a sua própria palavra-passe.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Associar gestor existente</Label>
+            <Label>Email do gestor</Label>
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -111,10 +127,27 @@ export default function ManagersDialog({ storeId, storeName }: Props) {
                 onKeyDown={(e) => { if (e.key === "Enter" && email) addMutation.mutate(email); }}
               />
               <Button onClick={() => addMutation.mutate(email)} disabled={!email || addMutation.isPending} className="gap-1">
-                <Plus className="h-4 w-4" /> Adicionar
+                <Plus className="h-4 w-4" /> Criar
               </Button>
             </div>
           </div>
+
+          {lastLink && (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
+              <p className="text-xs font-semibold">
+                Link para {lastEmail} definir a palavra-passe:
+              </p>
+              <div className="flex gap-2">
+                <Input readOnly value={lastLink} className="text-xs" onFocus={(e) => e.currentTarget.select()} />
+                <Button type="button" variant="outline" size="icon" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Envie este link ao gestor (WhatsApp, email, etc.). Ele só precisa de o abrir e definir a palavra-passe.
+              </p>
+            </div>
+          )}
 
           <div className="border-t pt-4">
             <Label className="text-xs text-muted-foreground">Gestores atuais</Label>
