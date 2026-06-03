@@ -29,6 +29,7 @@ const emptyForm: ProductForm = { name: "", description: "", price: "", category:
 
 export default function ProductManager() {
   const queryClient = useQueryClient();
+  const { user, isAdmin } = useAuth();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
@@ -36,12 +37,23 @@ export default function ProductManager() {
   const [uploading, setUploading] = useState(false);
 
   const { data: stores = [] } = useQuery({
-    queryKey: ["stores"],
+    queryKey: ["stores-scoped", isAdmin, user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stores").select("*").order("name");
+      if (isAdmin) {
+        const { data, error } = await supabase.from("stores").select("*").order("name");
+        if (error) throw error;
+        return data;
+      }
+      const { data: mgr, error: mgrErr } = await supabase
+        .from("store_managers").select("store_id").eq("user_id", user!.id);
+      if (mgrErr) throw mgrErr;
+      const ids = (mgr ?? []).map((m) => m.store_id);
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   const { data: products = [], isLoading } = useQuery({
