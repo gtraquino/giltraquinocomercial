@@ -14,24 +14,16 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [justSignedIn, setJustSignedIn] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim();
 
-  // Ao abrir /login, terminar qualquer sessão persistida para forçar autenticação
+  // Se já houver sessão válida, manter o utilizador autenticado e enviá-lo ao painel correto.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) supabase.auth.signOut();
-    });
-  }, []);
-
-  // Redirecionar apenas após login explícito: admin → /admin, gestor → /manager
-  useEffect(() => {
-    if (justSignedIn && !authLoading && user) {
+    if (!authLoading && user) {
       navigate(isAdmin ? "/admin" : "/manager", { replace: true });
     }
-  }, [justSignedIn, authLoading, navigate, user, isAdmin]);
+  }, [authLoading, navigate, user, isAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +52,6 @@ export default function Login() {
         toast({ title: "Erro no login", description: error.message, variant: "destructive" });
         return;
       }
-      setJustSignedIn(true);
       toast({ title: "Sessão iniciada", description: "A redirecionar para o painel." });
     } finally {
       setLoading(false);
