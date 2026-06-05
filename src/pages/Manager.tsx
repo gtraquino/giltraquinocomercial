@@ -4,11 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
+import ManagerContact from "@/components/admin/ManagerContact";
+import ManagerLinks from "@/components/admin/ManagerLinks";
 
-type Tab = "products" | "reports";
+type Tab = "products" | "contact" | "link" | "reports";
 
 export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -41,6 +43,8 @@ export default function Manager() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
+    { id: "contact", label: "Contactos", icon: <Phone className="h-4 w-4" /> },
+    { id: "link", label: "Link", icon: <Link2 className="h-4 w-4" /> },
     { id: "reports", label: "Pedidos", icon: <FileText className="h-4 w-4" /> },
   ];
 
@@ -73,6 +77,8 @@ export default function Manager() {
 
       <main className="mx-auto max-w-7xl p-4 md:p-6">
         {tab === "products" && <ProductManager />}
+        {tab === "contact" && <ManagerContact />}
+        {tab === "link" && <ManagerLinks />}
         {tab === "reports" && <OrdersReport />}
       </main>
     </div>
