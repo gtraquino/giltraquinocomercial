@@ -150,41 +150,31 @@ export default function OrdersReport() {
                 <p className="text-sm text-muted-foreground">Sem pedidos nesta data.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="py-2 pr-3">Hora</th>
-                      <th className="py-2 pr-3">Cliente</th>
-                      <th className="py-2 pr-3">Contacto</th>
-                      <th className="py-2 pr-3">Itens</th>
-                      <th className="py-2 pr-3 text-right">Total</th>
-                      <th className="py-2 text-right">Factura</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((o) => (
-                      <tr key={o.id} className="border-b last:border-0">
-                        <td className="py-2 pr-3 whitespace-nowrap">{new Date(o.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</td>
-                        <td className="py-2 pr-3">{o.customer_name}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">{o.customer_phone}</td>
-                        <td className="py-2 pr-3">{(o.items || []).map((i) => `${i.name} x${i.qty}`).join(", ")}</td>
-                        <td className="py-2 pr-3 text-right whitespace-nowrap font-medium">{Number(o.total).toFixed(2)} {o.currency}</td>
-                        <td className="py-2 text-right whitespace-nowrap">
-                          <div className="inline-flex gap-1">
-                            <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
-                              <Receipt className="h-3 w-3" /> PDF
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
-                              <Receipt className="h-3 w-3" /> Word
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {orders.map((o) => (
+                  <div key={o.id} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium">{o.customer_name} <span className="text-muted-foreground font-normal">· {o.customer_phone}</span></div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(o.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })} — {(o.items || []).map((i) => `${i.name} x${i.qty}`).join(", ")}
+                        </div>
+                      </div>
+                      <div className="font-semibold whitespace-nowrap">{Number(o.total).toFixed(2)} {o.currency}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1 border-t">
+                      <span className="text-xs text-muted-foreground self-center mr-1">Factura:</span>
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                        <Receipt className="h-3.5 w-3.5" /> PDF
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                        <Receipt className="h-3.5 w-3.5" /> Word
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
+
             )}
           </CardContent>
         </Card>
