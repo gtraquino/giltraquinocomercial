@@ -134,12 +134,14 @@ export type Database = {
       stores: {
         Row: {
           accent_color: string | null
+          address: string | null
           created_at: string
           created_by: string | null
           currency: string
           id: string
           logo_url: string | null
           name: string
+          nif: string | null
           primary_color: string | null
           type: string
           updated_at: string
@@ -148,12 +150,14 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          address?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
           id?: string
           logo_url?: string | null
           name: string
+          nif?: string | null
           primary_color?: string | null
           type: string
           updated_at?: string
@@ -162,12 +166,14 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          address?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
           id?: string
           logo_url?: string | null
           name?: string
+          nif?: string | null
           primary_color?: string | null
           type?: string
           updated_at?: string
