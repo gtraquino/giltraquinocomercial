@@ -16,6 +16,8 @@ export default function ManagerContact() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState("");
   const [whatsapp2, setWhatsapp2] = useState("");
+  const [nif, setNif] = useState("");
+  const [address, setAddress] = useState("");
 
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores", user?.id],
@@ -38,6 +40,8 @@ export default function ManagerContact() {
     if (selectedStore) {
       setWhatsapp(selectedStore.whatsapp || "");
       setWhatsapp2(selectedStore.whatsapp_2 || "");
+      setNif((selectedStore as any).nif || "");
+      setAddress((selectedStore as any).address || "");
     }
   }, [selectedStore]);
 
@@ -46,13 +50,13 @@ export default function ManagerContact() {
       if (!selectedStoreId) return;
       const { error } = await supabase
         .from("stores")
-        .update({ whatsapp, whatsapp_2: whatsapp2 || null })
+        .update({ whatsapp, whatsapp_2: whatsapp2 || null, nif: nif || null, address: address || null } as any)
         .eq("id", selectedStoreId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manager-stores"] });
-      toast({ title: "Contactos atualizados" });
+      toast({ title: "Dados da loja atualizados" });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
