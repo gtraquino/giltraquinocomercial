@@ -174,10 +174,16 @@ export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
           page: { size: { width: 12240, height: 15840 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } },
         },
         children: [
-          new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("FACTURA")] }),
-          new Paragraph({ children: [new TextRun({ text: meta.storeName, bold: true })] }),
-          new Paragraph({ children: [new TextRun(`Nº ${invoiceNo}`)] }),
-          new Paragraph({ children: [new TextRun(`Data: ${dateStr}`)] }),
+          new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: meta.storeName, bold: true })] }),
+          ...(meta.nif ? [new Paragraph({ children: [new TextRun(`NIF: ${meta.nif}`)] })] : []),
+          ...(meta.address ? [new Paragraph({ children: [new TextRun(meta.address)] })] : []),
+          ...(meta.whatsapp || meta.whatsapp2
+            ? [new Paragraph({ children: [new TextRun(`Tel: ${[meta.whatsapp, meta.whatsapp2].filter(Boolean).join(" / ")}`)] })]
+            : []),
+          new Paragraph({ children: [new TextRun("")] }),
+          new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "TALÃO / FACTURA", bold: true, size: 28 })] }),
+          new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(`Nº ${invoiceNo}`)] }),
+          new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(`Data: ${dateStr}`)] }),
           new Paragraph({ children: [new TextRun("")] }),
           new Paragraph({ children: [new TextRun({ text: "Cliente: ", bold: true }), new TextRun(order.customer_name || "—")] }),
           new Paragraph({ children: [new TextRun({ text: "Contacto: ", bold: true }), new TextRun(order.customer_phone || "—")] }),
@@ -194,6 +200,7 @@ export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
           }),
           new Paragraph({ children: [new TextRun("")] }),
           new Paragraph({ children: [new TextRun({ text: "Obrigado pela sua preferência.", italics: true })] }),
+          new Paragraph({ children: [new TextRun({ text: "Documento emitido eletronicamente — sem valor fiscal salvo indicação contrária.", italics: true, size: 16 })] }),
         ],
       },
     ],
