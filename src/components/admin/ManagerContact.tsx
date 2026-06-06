@@ -63,7 +63,8 @@ export default function ManagerContact() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">Contactos para Pedidos</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Dados da Loja & Contactos</h2>
+      <p className="text-sm text-muted-foreground -mt-4">Estes dados aparecem nos talões e facturas emitidos ao cliente.</p>
 
       <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
         <SelectTrigger className="w-full sm:w-[280px]">
