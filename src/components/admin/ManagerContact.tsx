@@ -16,6 +16,8 @@ export default function ManagerContact() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState("");
   const [whatsapp2, setWhatsapp2] = useState("");
+  const [nif, setNif] = useState("");
+  const [address, setAddress] = useState("");
 
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores", user?.id],
@@ -38,6 +40,8 @@ export default function ManagerContact() {
     if (selectedStore) {
       setWhatsapp(selectedStore.whatsapp || "");
       setWhatsapp2(selectedStore.whatsapp_2 || "");
+      setNif((selectedStore as any).nif || "");
+      setAddress((selectedStore as any).address || "");
     }
   }, [selectedStore]);
 
@@ -46,20 +50,21 @@ export default function ManagerContact() {
       if (!selectedStoreId) return;
       const { error } = await supabase
         .from("stores")
-        .update({ whatsapp, whatsapp_2: whatsapp2 || null })
+        .update({ whatsapp, whatsapp_2: whatsapp2 || null, nif: nif || null, address: address || null } as any)
         .eq("id", selectedStoreId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manager-stores"] });
-      toast({ title: "Contactos atualizados" });
+      toast({ title: "Dados da loja atualizados" });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">Contactos para Pedidos</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Dados da Loja & Contactos</h2>
+      <p className="text-sm text-muted-foreground -mt-4">Estes dados aparecem nos talões e facturas emitidos ao cliente.</p>
 
       <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
         <SelectTrigger className="w-full sm:w-[280px]">
@@ -92,13 +97,30 @@ export default function ManagerContact() {
                 onChange={(e) => setWhatsapp2(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>NIF (Número de Contribuinte)</Label>
+              <Input
+                placeholder="Ex: 5417000000"
+                value={nif}
+                onChange={(e) => setNif(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Aparece no talão/factura para o cliente.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Morada da loja</Label>
+              <Input
+                placeholder="Rua, nº, bairro, cidade"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </div>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || !whatsapp.trim()}
               className="gap-2"
             >
               <Phone className="h-4 w-4" />
-              {saveMutation.isPending ? "A guardar..." : "Guardar contactos"}
+              {saveMutation.isPending ? "A guardar..." : "Guardar dados"}
             </Button>
           </CardContent>
         </Card>
