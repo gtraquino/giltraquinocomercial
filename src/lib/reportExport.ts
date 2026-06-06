@@ -72,22 +72,41 @@ export function exportInvoicePDF(order: OrderRecord, meta: ReportMeta) {
   const invoiceNo = order.id.slice(0, 8).toUpperCase();
   const dateStr = new Date(order.created_at).toLocaleString("pt-PT");
 
-  doc.setFontSize(18);
-  doc.text("FACTURA", 14, 18);
-  doc.setFontSize(11);
-  doc.text(meta.storeName, 14, 26);
-  doc.text(`Nº ${invoiceNo}`, 150, 18);
-  doc.text(`Data: ${dateStr}`, 150, 26);
+  // Cabeçalho com dados da loja
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(meta.storeName, 14, 18);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  let y = 24;
+  if (meta.nif) { doc.text(`NIF: ${meta.nif}`, 14, y); y += 5; }
+  if (meta.address) { doc.text(meta.address, 14, y); y += 5; }
+  const contacts = [meta.whatsapp, meta.whatsapp2].filter(Boolean).join(" / ");
+  if (contacts) { doc.text(`Tel: ${contacts}`, 14, y); y += 5; }
+
+  // Bloco direito: nº e data
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("TALÃO / FACTURA", 196, 18, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Nº ${invoiceNo}`, 196, 24, { align: "right" });
+  doc.text(`Data: ${dateStr}`, 196, 29, { align: "right" });
+
+  const clientY = Math.max(y, 36) + 4;
+  doc.setDrawColor(200);
+  doc.line(14, clientY - 2, 196, clientY - 2);
 
   doc.setFontSize(11);
-  doc.text("Cliente:", 14, 40);
-  doc.text(order.customer_name || "—", 35, 40);
-  doc.text("Contacto:", 14, 46);
-  doc.text(order.customer_phone || "—", 35, 46);
+  doc.setFont("helvetica", "bold");
+  doc.text("Cliente", 14, clientY + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Nome: ${order.customer_name || "—"}`, 14, clientY + 10);
+  doc.text(`Contacto: ${order.customer_phone || "—"}`, 14, clientY + 16);
 
   autoTable(doc, {
-    startY: 54,
-    head: [["Produto", "Qtd", "Preço", "Subtotal"]],
+    startY: clientY + 22,
+    head: [["Produto", "Qtd", "Preço Unit.", "Subtotal"]],
     body: order.items.map((i) => [
       i.name,
       String(i.qty),
@@ -99,13 +118,18 @@ export function exportInvoicePDF(order: OrderRecord, meta: ReportMeta) {
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 60;
-  doc.setFontSize(12);
-  doc.text(`TOTAL: ${Number(order.total).toFixed(2)} ${order.currency}`, 150, finalY + 10, { align: "right" });
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text(`TOTAL: ${Number(order.total).toFixed(2)} ${order.currency}`, 196, finalY + 10, { align: "right" });
 
+  doc.setFont("helvetica", "italic");
   doc.setFontSize(9);
-  doc.text("Obrigado pela sua preferência.", 14, finalY + 30);
+  doc.text("Obrigado pela sua preferência.", 14, finalY + 24);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Documento emitido eletronicamente — sem valor fiscal salvo indicação contrária.", 14, finalY + 30);
 
-  doc.save(`factura-${invoiceNo}.pdf`);
+  doc.save(`talao-${invoiceNo}.pdf`);
 }
 
 export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
