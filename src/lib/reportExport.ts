@@ -207,7 +207,7 @@ export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `factura-${invoiceNo}.docx`);
+  saveAs(blob, `talao-${invoiceNo}.docx`);
 }
 
 export async function exportOrdersDOCX(orders: OrderRecord[], meta: ReportMeta) {
