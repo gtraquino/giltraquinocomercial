@@ -63,6 +63,118 @@ export function exportOrdersPDF(orders: OrderRecord[], meta: ReportMeta) {
   doc.save(`pedidos-${meta.storeName}-${meta.dateLabel}.pdf`);
 }
 
+export function exportInvoicePDF(order: OrderRecord, meta: ReportMeta) {
+  const doc = new jsPDF();
+  const invoiceNo = order.id.slice(0, 8).toUpperCase();
+  const dateStr = new Date(order.created_at).toLocaleString("pt-PT");
+
+  doc.setFontSize(18);
+  doc.text("FACTURA", 14, 18);
+  doc.setFontSize(11);
+  doc.text(meta.storeName, 14, 26);
+  doc.text(`Nº ${invoiceNo}`, 150, 18);
+  doc.text(`Data: ${dateStr}`, 150, 26);
+
+  doc.setFontSize(11);
+  doc.text("Cliente:", 14, 40);
+  doc.text(order.customer_name || "—", 35, 40);
+  doc.text("Contacto:", 14, 46);
+  doc.text(order.customer_phone || "—", 35, 46);
+
+  autoTable(doc, {
+    startY: 54,
+    head: [["Produto", "Qtd", "Preço", "Subtotal"]],
+    body: order.items.map((i) => [
+      i.name,
+      String(i.qty),
+      `${Number(i.price).toFixed(2)} ${order.currency}`,
+      `${(Number(i.price) * Number(i.qty)).toFixed(2)} ${order.currency}`,
+    ]),
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [40, 40, 40] },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY || 60;
+  doc.setFontSize(12);
+  doc.text(`TOTAL: ${Number(order.total).toFixed(2)} ${order.currency}`, 150, finalY + 10, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.text("Obrigado pela sua preferência.", 14, finalY + 30);
+
+  doc.save(`factura-${invoiceNo}.pdf`);
+}
+
+export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
+  const invoiceNo = order.id.slice(0, 8).toUpperCase();
+  const dateStr = new Date(order.created_at).toLocaleString("pt-PT");
+
+  const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
+  const cellBorders = { top: border, bottom: border, left: border, right: border };
+
+  const headerCells = ["Produto", "Qtd", "Preço", "Subtotal"].map((h) =>
+    new TableCell({
+      borders: cellBorders,
+      shading: { fill: "EEEEEE", type: "clear" as any },
+      margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+    })
+  );
+
+  const bodyRows = order.items.map(
+    (i) =>
+      new TableRow({
+        children: [
+          i.name,
+          String(i.qty),
+          `${Number(i.price).toFixed(2)} ${order.currency}`,
+          `${(Number(i.price) * Number(i.qty)).toFixed(2)} ${order.currency}`,
+        ].map(
+          (val) =>
+            new TableCell({
+              borders: cellBorders,
+              margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun(val)] })],
+            })
+        ),
+      })
+  );
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: { size: { width: 12240, height: 15840 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } },
+        },
+        children: [
+          new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("FACTURA")] }),
+          new Paragraph({ children: [new TextRun({ text: meta.storeName, bold: true })] }),
+          new Paragraph({ children: [new TextRun(`Nº ${invoiceNo}`)] }),
+          new Paragraph({ children: [new TextRun(`Data: ${dateStr}`)] }),
+          new Paragraph({ children: [new TextRun("")] }),
+          new Paragraph({ children: [new TextRun({ text: "Cliente: ", bold: true }), new TextRun(order.customer_name || "—")] }),
+          new Paragraph({ children: [new TextRun({ text: "Contacto: ", bold: true }), new TextRun(order.customer_phone || "—")] }),
+          new Paragraph({ children: [new TextRun("")] }),
+          new Table({
+            width: { size: 10240, type: WidthType.DXA },
+            columnWidths: [4540, 1500, 2100, 2100],
+            rows: [new TableRow({ children: headerCells, tableHeader: true }), ...bodyRows],
+          }),
+          new Paragraph({ children: [new TextRun("")] }),
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [new TextRun({ text: `TOTAL: ${Number(order.total).toFixed(2)} ${order.currency}`, bold: true, size: 28 })],
+          }),
+          new Paragraph({ children: [new TextRun("")] }),
+          new Paragraph({ children: [new TextRun({ text: "Obrigado pela sua preferência.", italics: true })] }),
+        ],
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `factura-${invoiceNo}.docx`);
+}
+
 export async function exportOrdersDOCX(orders: OrderRecord[], meta: ReportMeta) {
   const grandTotal = orders.reduce((s, o) => s + Number(o.total), 0);
 
