@@ -24,7 +24,7 @@ export default function OrdersReport() {
     queryKey: ["report-stores", user?.id, isAdmin],
     queryFn: async () => {
       if (isAdmin) {
-        const { data, error } = await supabase.from("stores").select("id, name, currency").order("name");
+        const { data, error } = await supabase.from("stores").select("*").order("name");
         if (error) throw error;
         return data;
       }
@@ -32,7 +32,7 @@ export default function OrdersReport() {
       if (e1) throw e1;
       const ids = (mgr ?? []).map((m) => m.store_id);
       if (ids.length === 0) return [];
-      const { data, error } = await supabase.from("stores").select("id, name, currency").in("id", ids).order("name");
+      const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
       return data;
     },
