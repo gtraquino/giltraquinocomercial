@@ -97,13 +97,30 @@ export default function ManagerContact() {
                 onChange={(e) => setWhatsapp2(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>NIF (Número de Contribuinte)</Label>
+              <Input
+                placeholder="Ex: 5417000000"
+                value={nif}
+                onChange={(e) => setNif(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Aparece no talão/factura para o cliente.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Morada da loja</Label>
+              <Input
+                placeholder="Rua, nº, bairro, cidade"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </div>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || !whatsapp.trim()}
               className="gap-2"
             >
               <Phone className="h-4 w-4" />
-              {saveMutation.isPending ? "A guardar..." : "Guardar contactos"}
+              {saveMutation.isPending ? "A guardar..." : "Guardar dados"}
             </Button>
           </CardContent>
         </Card>
