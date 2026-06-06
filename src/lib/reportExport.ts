@@ -24,6 +24,10 @@ interface ReportMeta {
   storeName: string;
   dateLabel: string;
   currency: string;
+  nif?: string | null;
+  address?: string | null;
+  whatsapp?: string | null;
+  whatsapp2?: string | null;
 }
 
 const fmtTime = (iso: string) => {
