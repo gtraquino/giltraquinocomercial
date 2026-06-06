@@ -163,11 +163,11 @@ export default function OrdersReport() {
                       <div className="font-semibold whitespace-nowrap">{Number(o.total).toFixed(2)} {o.currency}</div>
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1 border-t">
-                      <span className="text-xs text-muted-foreground self-center mr-1">Factura:</span>
-                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                      <span className="text-xs text-muted-foreground self-center mr-1">Talão:</span>
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}>
                         <Receipt className="h-3.5 w-3.5" /> PDF
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}>
                         <Receipt className="h-3.5 w-3.5" /> Word
                       </Button>
                     </div>
