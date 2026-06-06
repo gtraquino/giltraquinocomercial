@@ -158,7 +158,8 @@ export default function OrdersReport() {
                       <th className="py-2 pr-3">Cliente</th>
                       <th className="py-2 pr-3">Contacto</th>
                       <th className="py-2 pr-3">Itens</th>
-                      <th className="py-2 text-right">Total</th>
+                      <th className="py-2 pr-3 text-right">Total</th>
+                      <th className="py-2 text-right">Factura</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -168,7 +169,17 @@ export default function OrdersReport() {
                         <td className="py-2 pr-3">{o.customer_name}</td>
                         <td className="py-2 pr-3 whitespace-nowrap">{o.customer_phone}</td>
                         <td className="py-2 pr-3">{(o.items || []).map((i) => `${i.name} x${i.qty}`).join(", ")}</td>
-                        <td className="py-2 text-right whitespace-nowrap font-medium">{Number(o.total).toFixed(2)} {o.currency}</td>
+                        <td className="py-2 pr-3 text-right whitespace-nowrap font-medium">{Number(o.total).toFixed(2)} {o.currency}</td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <div className="inline-flex gap-1">
+                            <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                              <Receipt className="h-3 w-3" /> PDF
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: date, currency: selectedStore.currency })}>
+                              <Receipt className="h-3 w-3" /> Word
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
