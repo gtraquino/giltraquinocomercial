@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, FileDown, ShoppingBag } from "lucide-react";
-import { exportOrdersPDF, exportOrdersDOCX, OrderRecord } from "@/lib/reportExport";
+import { FileText, FileDown, ShoppingBag, Receipt } from "lucide-react";
+import { exportOrdersPDF, exportOrdersDOCX, exportInvoicePDF, exportInvoiceDOCX, OrderRecord } from "@/lib/reportExport";
 import { toast } from "@/hooks/use-toast";
 
 export default function OrdersReport() {
