@@ -68,16 +68,6 @@ export default function ManagerContact() {
         .eq("id", selectedStoreId);
       if (error) throw error;
     },
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedStoreId) return;
-      const { error } = await supabase
-        .from("stores")
-        .update({ whatsapp, whatsapp_2: whatsapp2 || null, nif: nif || null, address: address || null } as any)
-        .eq("id", selectedStoreId);
-      if (error) throw error;
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manager-stores"] });
       toast({ title: "Dados da loja atualizados" });
