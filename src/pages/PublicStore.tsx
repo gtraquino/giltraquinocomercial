@@ -197,12 +197,41 @@ export default function PublicStore() {
     ["--ring" as any]: store.primary_color || undefined,
   } as React.CSSProperties : undefined;
 
+  const heroColor = store.primary_color || store.accent_color;
+  const heroStyle: React.CSSProperties = heroColor
+    ? {
+        backgroundColor: `hsl(${heroColor} / 0.12)`,
+        color: `hsl(${heroColor})`,
+        borderBottom: `1px solid hsl(${heroColor} / 0.2)`,
+      }
+    : {};
+  const logoBgStyle: React.CSSProperties = heroColor
+    ? { backgroundColor: `hsl(${heroColor} / 0.18)` }
+    : {};
+  const subtitleStyle: React.CSSProperties = heroColor
+    ? { color: `hsl(${heroColor} / 0.75)` }
+    : {};
+  const watermarkStyle: React.CSSProperties = heroColor
+    ? { color: `hsl(${heroColor} / 0.07)` }
+    : { color: "hsl(var(--foreground) / 0.05)" };
+
   return (
-    <div className="min-h-screen bg-background" style={themeStyle}>
+    <div className="min-h-screen bg-background relative overflow-hidden" style={themeStyle}>
+      {/* Sombreado com nome da loja */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 flex items-center justify-center z-0 select-none"
+        style={watermarkStyle}
+      >
+        <span className="font-extrabold tracking-tight text-[18vw] md:text-[14vw] leading-none -rotate-12 whitespace-nowrap">
+          {store.name}
+        </span>
+      </div>
+
       {/* Hero */}
-      <div className="bg-primary text-primary-foreground px-4 py-10 md:py-16">
+      <div className="relative z-10 px-4 py-10 md:py-16" style={heroStyle}>
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/10 overflow-hidden">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden" style={logoBgStyle}>
             {store.logo_url ? (
               <img src={store.logo_url} alt={store.name} className="h-full w-full object-cover" />
             ) : (
@@ -210,11 +239,11 @@ export default function PublicStore() {
             )}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">{store.name}</h1>
-          <p className="text-primary-foreground/80 capitalize">{store.type} • {store.currency}</p>
+          <p className="capitalize" style={subtitleStyle}>{store.type} • {store.currency}</p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl p-4 md:p-6 pb-32">
+      <div className="relative z-10 mx-auto max-w-4xl p-4 md:p-6 pb-32">
         {products.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
