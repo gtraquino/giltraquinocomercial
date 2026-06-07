@@ -18,6 +18,9 @@ export default function ManagerContact() {
   const [whatsapp2, setWhatsapp2] = useState("");
   const [nif, setNif] = useState("");
   const [address, setAddress] = useState("");
+  const [heroTitle, setHeroTitle] = useState("");
+  const [openingTime, setOpeningTime] = useState("");
+  const [closingTime, setClosingTime] = useState("");
 
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores", user?.id],
