@@ -128,6 +128,33 @@ export default function ManagerContact() {
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Título do Hero (opcional)</Label>
+              <Input
+                placeholder='Ex: "Menu Digital - Para Restaurantes"'
+                value={heroTitle}
+                onChange={(e) => setHeroTitle(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Aparece como subtítulo no topo da página do cliente.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Hora de abertura</Label>
+                <Input
+                  type="time"
+                  value={openingTime}
+                  onChange={(e) => setOpeningTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Hora de fecho</Label>
+                <Input
+                  type="time"
+                  value={closingTime}
+                  onChange={(e) => setClosingTime(e.target.value)}
+                />
+              </div>
+            </div>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || !whatsapp.trim()}
