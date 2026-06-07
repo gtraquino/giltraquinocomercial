@@ -135,13 +135,16 @@ export type Database = {
         Row: {
           accent_color: string | null
           address: string | null
+          closing_time: string | null
           created_at: string
           created_by: string | null
           currency: string
+          hero_title: string | null
           id: string
           logo_url: string | null
           name: string
           nif: string | null
+          opening_time: string | null
           primary_color: string | null
           type: string
           updated_at: string
@@ -151,13 +154,16 @@ export type Database = {
         Insert: {
           accent_color?: string | null
           address?: string | null
+          closing_time?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           name: string
           nif?: string | null
+          opening_time?: string | null
           primary_color?: string | null
           type: string
           updated_at?: string
@@ -167,13 +173,16 @@ export type Database = {
         Update: {
           accent_color?: string | null
           address?: string | null
+          closing_time?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           nif?: string | null
+          opening_time?: string | null
           primary_color?: string | null
           type?: string
           updated_at?: string
