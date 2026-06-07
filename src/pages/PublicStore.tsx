@@ -239,7 +239,33 @@ export default function PublicStore() {
             )}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">{store.name}</h1>
+          {(store as any).hero_title && (
+            <p className="text-base md:text-lg font-medium mb-2" style={subtitleStyle}>
+              {(store as any).hero_title}
+            </p>
+          )}
           <p className="capitalize" style={subtitleStyle}>{store.type} • {store.currency}</p>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm" style={subtitleStyle}>
+            {store.whatsapp && (
+              <span className="inline-flex items-center gap-1.5">
+                <Phone className="h-4 w-4" />
+                {store.whatsapp}
+              </span>
+            )}
+            {(store as any).whatsapp_2 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Phone className="h-4 w-4" />
+                {(store as any).whatsapp_2}
+              </span>
+            )}
+            {((store as any).opening_time || (store as any).closing_time) && (
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                {(store as any).opening_time || "--:--"} – {(store as any).closing_time || "--:--"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
