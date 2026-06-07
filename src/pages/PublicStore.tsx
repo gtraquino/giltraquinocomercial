@@ -231,11 +231,11 @@ export default function PublicStore() {
       {/* Hero */}
       <div className="relative z-10 px-4 py-10 md:py-16" style={heroStyle}>
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden" style={logoBgStyle}>
+          <div className="mx-auto mb-4 flex h-64 w-64 md:h-80 md:w-80 items-center justify-center rounded-full overflow-hidden" style={logoBgStyle}>
             {store.logo_url ? (
               <img src={store.logo_url} alt={store.name} className="h-full w-full object-cover" />
             ) : (
-              <Store className="h-8 w-8" />
+              <Store className="h-16 w-16" />
             )}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">{store.name}</h1>
