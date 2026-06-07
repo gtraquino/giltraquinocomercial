@@ -223,7 +223,7 @@ export default function PublicStore() {
         className="pointer-events-none fixed inset-0 flex items-center justify-center z-0 select-none"
         style={watermarkStyle}
       >
-        <span className="font-extrabold tracking-tight text-[18vw] md:text-[14vw] leading-none -rotate-12 whitespace-nowrap">
+        <span className="font-extrabold tracking-tight text-[11vw] md:text-[9vw] leading-none -rotate-12 whitespace-nowrap">
           {store.name}
         </span>
       </div>
