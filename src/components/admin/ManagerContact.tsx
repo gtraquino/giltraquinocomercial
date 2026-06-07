@@ -45,8 +45,29 @@ export default function ManagerContact() {
       setWhatsapp2(selectedStore.whatsapp_2 || "");
       setNif((selectedStore as any).nif || "");
       setAddress((selectedStore as any).address || "");
+      setHeroTitle((selectedStore as any).hero_title || "");
+      setOpeningTime((selectedStore as any).opening_time || "");
+      setClosingTime((selectedStore as any).closing_time || "");
     }
   }, [selectedStore]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedStoreId) return;
+      const { error } = await supabase
+        .from("stores")
+        .update({
+          whatsapp,
+          whatsapp_2: whatsapp2 || null,
+          nif: nif || null,
+          address: address || null,
+          hero_title: heroTitle || null,
+          opening_time: openingTime || null,
+          closing_time: closingTime || null,
+        } as any)
+        .eq("id", selectedStoreId);
+      if (error) throw error;
+    },
 
   const saveMutation = useMutation({
     mutationFn: async () => {
