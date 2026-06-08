@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock } from "lucide-react";
+import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import { isStoreBlocked } from "@/lib/billing";
 
 interface CartItem {
   id: string;
