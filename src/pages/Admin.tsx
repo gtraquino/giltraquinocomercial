@@ -86,6 +86,7 @@ export default function Admin() {
         {tab === "products" && <ProductManager />}
         {tab === "links" && <LinkGenerator />}
         {tab === "reports" && <OrdersReport />}
+        {tab === "billing" && <BillingManager />}
       </main>
     </div>
   );
