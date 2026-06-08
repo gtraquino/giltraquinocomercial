@@ -32,6 +32,7 @@ export default function Admin() {
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
     { id: "links", label: "Links WhatsApp", icon: <Link2 className="h-4 w-4" /> },
     { id: "reports", label: "Relatórios", icon: <FileText className="h-4 w-4" /> },
+    { id: "billing", label: "Mensalidades", icon: <Wallet className="h-4 w-4" /> },
   ];
 
   return (
