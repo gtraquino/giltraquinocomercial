@@ -4,11 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone, Lock } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
 import ManagerLinks from "@/components/admin/ManagerLinks";
+import { isStoreBlocked } from "@/lib/billing";
 
 type Tab = "products" | "contact" | "link" | "reports";
 
