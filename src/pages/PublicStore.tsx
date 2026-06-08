@@ -190,6 +190,22 @@ export default function PublicStore() {
     );
   }
 
+  if (isStoreBlocked(store as any)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <div className="text-center max-w-md">
+          <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Loja temporariamente indisponível</h1>
+          <p className="text-muted-foreground">
+            Esta loja está temporariamente fora de serviço. Por favor tente novamente mais tarde.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const categories = [...new Set(products.map((p) => p.category || "Outros"))];
 
   const themeStyle = (store.primary_color || store.accent_color) ? {
