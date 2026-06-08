@@ -46,6 +46,24 @@ export default function Manager() {
   if (isAdmin) return <Navigate to="/admin" replace />;
   if (managedCount === 0) return <Navigate to="/" replace />;
 
+  if (allBlocked) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+          <Lock className="h-8 w-8 text-destructive" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Acesso bloqueado</h1>
+        <p className="text-muted-foreground max-w-md mb-6">
+          A(s) sua(s) loja(s) está(ão) com a mensalidade em atraso ou foi(ram) bloqueada(s).
+          Contacte o administrador para regularizar a situação.
+        </p>
+        <Button variant="outline" onClick={signOut} className="gap-2">
+          <LogOut className="h-4 w-4" /> Sair
+        </Button>
+      </div>
+    );
+  }
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
     { id: "contact", label: "Contactos", icon: <Phone className="h-4 w-4" /> },
