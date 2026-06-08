@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, Package, Link2, LogOut, Menu, X, FileText } from "lucide-react";
+import { Store, Package, Link2, LogOut, Menu, X, FileText, Wallet } from "lucide-react";
 import StoreManager from "@/components/admin/StoreManager";
 import ProductManager from "@/components/admin/ProductManager";
 import LinkGenerator from "@/components/admin/LinkGenerator";
 import OrdersReport from "@/components/admin/OrdersReport";
+import BillingManager from "@/components/admin/BillingManager";
 
-type Tab = "stores" | "products" | "links" | "reports";
+type Tab = "stores" | "products" | "links" | "reports" | "billing";
 
 export default function Admin() {
   const { user, isAdmin, loading, signOut } = useAuth();
