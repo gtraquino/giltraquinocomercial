@@ -17,18 +17,22 @@ export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>("products");
 
-  const { data: managedCount = 0, isLoading: mgrLoading } = useQuery({
-    queryKey: ["my-managed-stores", user?.id],
+  const { data: myStores = [], isLoading: mgrLoading } = useQuery({
+    queryKey: ["my-managed-stores-billing", user?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("store_managers")
-        .select("*", { count: "exact", head: true })
+        .select("store_id, stores(id, name, is_blocked, paid_until)")
         .eq("user_id", user!.id);
       if (error) throw error;
-      return count ?? 0;
+      return (data ?? []).map((r: any) => r.stores).filter(Boolean) as Array<{
+        id: string; name: string; is_blocked: boolean; paid_until: string | null;
+      }>;
     },
     enabled: !!user,
   });
+  const managedCount = myStores.length;
+  const allBlocked = managedCount > 0 && myStores.every((s) => isStoreBlocked(s));
 
   if (loading || (user && mgrLoading)) {
     return (
