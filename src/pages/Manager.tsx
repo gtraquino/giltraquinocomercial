@@ -4,11 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone, Lock } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
 import ManagerLinks from "@/components/admin/ManagerLinks";
+import { isStoreBlocked } from "@/lib/billing";
 
 type Tab = "products" | "contact" | "link" | "reports";
 
@@ -16,18 +17,22 @@ export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>("products");
 
-  const { data: managedCount = 0, isLoading: mgrLoading } = useQuery({
-    queryKey: ["my-managed-stores", user?.id],
+  const { data: myStores = [], isLoading: mgrLoading } = useQuery({
+    queryKey: ["my-managed-stores-billing", user?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("store_managers")
-        .select("*", { count: "exact", head: true })
+        .select("store_id, stores(id, name, is_blocked, paid_until)")
         .eq("user_id", user!.id);
       if (error) throw error;
-      return count ?? 0;
+      return (data ?? []).map((r: any) => r.stores).filter(Boolean) as Array<{
+        id: string; name: string; is_blocked: boolean; paid_until: string | null;
+      }>;
     },
     enabled: !!user,
   });
+  const managedCount = myStores.length;
+  const allBlocked = managedCount > 0 && myStores.every((s) => isStoreBlocked(s));
 
   if (loading || (user && mgrLoading)) {
     return (
@@ -40,6 +45,24 @@ export default function Manager() {
   if (!user) return <Navigate to="/login" replace />;
   if (isAdmin) return <Navigate to="/admin" replace />;
   if (managedCount === 0) return <Navigate to="/" replace />;
+
+  if (allBlocked) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+          <Lock className="h-8 w-8 text-destructive" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Acesso bloqueado</h1>
+        <p className="text-muted-foreground max-w-md mb-6">
+          A(s) sua(s) loja(s) está(ão) com a mensalidade em atraso ou foi(ram) bloqueada(s).
+          Contacte o administrador para regularizar a situação.
+        </p>
+        <Button variant="outline" onClick={signOut} className="gap-2">
+          <LogOut className="h-4 w-4" /> Sair
+        </Button>
+      </div>
+    );
+  }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },

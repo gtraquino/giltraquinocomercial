@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock } from "lucide-react";
+import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import { isStoreBlocked } from "@/lib/billing";
 
 interface CartItem {
   id: string;
@@ -184,6 +185,22 @@ export default function PublicStore() {
           <Store className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold mb-2">Loja não encontrada</h1>
           <p className="text-muted-foreground">Verifique o link e tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isStoreBlocked(store as any)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <div className="text-center max-w-md">
+          <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Loja temporariamente indisponível</h1>
+          <p className="text-muted-foreground">
+            Esta loja está temporariamente fora de serviço. Por favor tente novamente mais tarde.
+          </p>
         </div>
       </div>
     );
