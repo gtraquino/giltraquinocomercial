@@ -131,6 +131,50 @@ export type Database = {
           },
         ]
       }
+      store_payments: {
+        Row: {
+          amount: number
+          covers_until: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          paid_at: string
+          period: string
+          store_id: string
+        }
+        Insert: {
+          amount: number
+          covers_until: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          period: string
+          store_id: string
+        }
+        Update: {
+          amount?: number
+          covers_until?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          period?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_payments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stores: {
         Row: {
           accent_color: string | null
@@ -141,11 +185,15 @@ export type Database = {
           currency: string
           hero_title: string | null
           id: string
+          is_blocked: boolean
           logo_url: string | null
           name: string
           nif: string | null
           opening_time: string | null
+          paid_until: string | null
           primary_color: string | null
+          subscription_amount: number | null
+          subscription_period: string | null
           type: string
           updated_at: string
           whatsapp: string
@@ -160,11 +208,15 @@ export type Database = {
           currency: string
           hero_title?: string | null
           id?: string
+          is_blocked?: boolean
           logo_url?: string | null
           name: string
           nif?: string | null
           opening_time?: string | null
+          paid_until?: string | null
           primary_color?: string | null
+          subscription_amount?: number | null
+          subscription_period?: string | null
           type: string
           updated_at?: string
           whatsapp: string
@@ -179,11 +231,15 @@ export type Database = {
           currency?: string
           hero_title?: string | null
           id?: string
+          is_blocked?: boolean
           logo_url?: string | null
           name?: string
           nif?: string | null
           opening_time?: string | null
+          paid_until?: string | null
           primary_color?: string | null
+          subscription_amount?: number | null
+          subscription_period?: string | null
           type?: string
           updated_at?: string
           whatsapp?: string
