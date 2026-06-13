@@ -1,5 +1,7 @@
-UPDATE auth.users
-SET encrypted_password = crypt('Naosei123!', gen_salt('bf')),
-    email_confirmed_at = COALESCE(email_confirmed_at, now()),
-    updated_at = now()
-WHERE email = 'g.traquino66@gmail.com';
+-- O usuário 'g.traquino66@gmail.com' não existe na tabela auth.users em um novo projeto.
+-- Desativamos esta query para evitar erros de extensão de criptografia ausente.
+-- UPDATE auth.users
+-- SET encrypted_password = crypt('Naosei123!', gen_salt('bf')),
+--     email_confirmed_at = COALESCE(email_confirmed_at, now()),
+--     updated_at = now()
+-- WHERE email = 'g.traquino66@gmail.com';

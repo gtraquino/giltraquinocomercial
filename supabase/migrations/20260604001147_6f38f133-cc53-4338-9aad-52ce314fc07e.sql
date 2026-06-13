@@ -1,1 +1,3 @@
-INSERT INTO public.user_roles (user_id, role) VALUES ('a3bfb943-ffd4-4f32-9a11-51a627090042', 'admin') ON CONFLICT (user_id, role) DO NOTHING;
+-- Este usuário não existe na tabela auth.users em um novo projeto.
+-- Desativamos esta query para evitar erros de restrição de chave estrangeira (foreign key).
+-- INSERT INTO public.user_roles (user_id, role) VALUES ('a3bfb943-ffd4-4f32-9a11-51a627090042', 'admin') ON CONFLICT (user_id, role) DO NOTHING;
