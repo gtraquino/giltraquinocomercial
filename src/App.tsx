@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import Manager from "./pages/Manager";
 import PublicStore from "./pages/PublicStore";
 import NotFound from "./pages/NotFound";
+import DatabaseSettings from "@/components/DatabaseSettings";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/loja/:storeId" element={<PublicStore />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <DatabaseSettings />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
