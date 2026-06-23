@@ -10,6 +10,7 @@ import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
 import ManagerLinks from "@/components/admin/ManagerLinks";
 import { isStoreBlocked } from "@/lib/billing";
+import DashboardHero from "@/components/DashboardHero";
 
 type Tab = "products" | "contact" | "link" | "reports";
 
@@ -99,6 +100,7 @@ export default function Manager() {
       </header>
 
       <main className="mx-auto max-w-7xl p-4 md:p-6">
+        <DashboardHero role="manager" />
         {tab === "products" && <ProductManager />}
         {tab === "contact" && <ManagerContact />}
         {tab === "link" && <ManagerLinks />}

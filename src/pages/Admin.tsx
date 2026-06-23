@@ -8,6 +8,7 @@ import ProductManager from "@/components/admin/ProductManager";
 import LinkGenerator from "@/components/admin/LinkGenerator";
 import OrdersReport from "@/components/admin/OrdersReport";
 import BillingManager from "@/components/admin/BillingManager";
+import DashboardHero from "@/components/DashboardHero";
 
 type Tab = "stores" | "products" | "links" | "reports" | "billing";
 
@@ -82,6 +83,7 @@ export default function Admin() {
       </header>
 
       <main className="mx-auto max-w-7xl p-4 md:p-6">
+        <DashboardHero role="admin" />
         {tab === "stores" && <StoreManager />}
         {tab === "products" && <ProductManager />}
         {tab === "links" && <LinkGenerator />}
