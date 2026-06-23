@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: restaurants
+    // Fields:
+    //   - name: string (required)
+    //   - description: string
+    //   - whatsapp: string (required)
+    //   - image_url: string
+    //   - category: string
+    //   - address: string
+    //   - createdAt: timestamp
+    //
+    // Collection: products
+    // Fields:
+    //   - restaurant_id: string (required)
+    //   - name: string (required)
+    //   - description: string
+    //   - price_kz: number (required)
+    //   - category: string
+    //   - image_url: string
+    //   - createdAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "g.traquino66@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidRestaurant(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.whatsapp is string && data.whatsapp.size() > 0 && data.whatsapp.size() < 20;
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price_kz is number && data.price_kz >= 0 &&
+             data.restaurant_id is string;
+    }
+
+    // =/restaurants
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Publicly readable for customers
+      allow create, update: if isAdmin() && isValidRestaurant(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // =/products
+    match /products/{productId} {
+      allow read: if true; // Publicly readable for customers
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

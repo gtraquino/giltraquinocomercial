@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Restaurant": {
+      "title": "Restaurant",
+      "description": "A restaurant registered in the system.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "image_url": { "type": "string" },
+        "category": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "whatsapp"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product offered by a restaurant.",
+      "type": "object",
+      "properties": {
+        "restaurant_id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price_kz": { "type": "number" },
+        "category": { "type": "string" },
+        "image_url": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["restaurant_id", "name", "price_kz"]
+    }
+  },
+  "firestore": {
+    "/restaurants/{restaurantId}": {
+      "schema": "Restaurant",
+      "description": "Collection of restaurants."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products linked to restaurants."
+    }
+  }
+}

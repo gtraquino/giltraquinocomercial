@@ -21,14 +21,25 @@ export default function Manager() {
   const { data: myStores = [], isLoading: mgrLoading } = useQuery({
     queryKey: ["my-managed-stores-billing", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: Get store ids from store_managers
+      const { data: mgrRows, error: mgrErr } = await supabase
         .from("store_managers")
-        .select("store_id, stores(id, name, is_blocked, paid_until)")
+        .select("store_id")
         .eq("user_id", user!.id);
+      if (mgrErr) throw mgrErr;
+      
+      const ids = (mgrRows ?? []).map((r: any) => r.store_id);
+      if (ids.length === 0) return [];
+      
+      // Step 2: Fetch stores details for those ids
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, is_blocked, paid_until")
+        .in("id", ids)
+        .order("name");
       if (error) throw error;
-      return (data ?? []).map((r: any) => r.stores).filter(Boolean) as Array<{
-        id: string; name: string; is_blocked: boolean; paid_until: string | null;
-      }>;
+      
+      return data ?? [];
     },
     enabled: !!user,
   });
@@ -45,7 +56,24 @@ export default function Manager() {
 
   if (!user) return <Navigate to="/login" replace />;
   if (isAdmin) return <Navigate to="/admin" replace />;
-  if (managedCount === 0) return <Navigate to="/" replace />;
+  
+  if (managedCount === 0) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Store className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Sem lojas associadas</h1>
+        <p className="text-muted-foreground max-w-md mb-6">
+          A sua conta de gestor ainda não tem nenhuma loja associada. 
+          Por favor, contacte o administrador para lhe atribuir uma loja no painel principal.
+        </p>
+        <Button variant="outline" onClick={signOut} className="gap-2">
+          <LogOut className="h-4 w-4" /> Sair
+        </Button>
+      </div>
+    );
+  }
 
   if (allBlocked) {
     return (

@@ -37,6 +37,13 @@ export default function ManagerContact() {
     enabled: !!user,
   });
 
+  // Auto-select first store if none selected
+  useEffect(() => {
+    if (stores && stores.length > 0 && !selectedStoreId) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, selectedStoreId]);
+
   const selectedStore = stores.find((s) => s.id === selectedStoreId);
 
   useEffect(() => {

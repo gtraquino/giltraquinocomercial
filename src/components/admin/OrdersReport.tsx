@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,13 @@ export default function OrdersReport() {
     },
     enabled: !!user,
   });
+
+  // Auto-select first store if none selected
+  useEffect(() => {
+    if (stores && stores.length > 0 && !storeId) {
+      setStoreId(stores[0].id);
+    }
+  }, [stores, storeId]);
 
   const selectedStore = useMemo(() => stores.find((s) => s.id === storeId), [stores, storeId]);
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,12 +49,19 @@ export default function ProductManager() {
       if (mgrErr) throw mgrErr;
       const ids = (mgr ?? []).map((m) => m.store_id);
       if (ids.length === 0) return [];
-      const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
+      const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
+
+  // Auto-select first store if none selected
+  useEffect(() => {
+    if (stores && stores.length > 0 && !selectedStoreId) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, selectedStoreId]);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products", selectedStoreId],
