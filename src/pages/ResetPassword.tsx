@@ -12,11 +12,17 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change event on ResetPassword page:", event);
+      if (
+        event === "PASSWORD_RECOVERY" || 
+        event === "SIGNED_IN" || 
+        (event === "INITIAL_SESSION" && session)
+      ) {
         setReady(true);
       }
     });
@@ -27,13 +33,16 @@ export default function ResetPassword() {
       const errorDesc = url.searchParams.get("error_description") || url.hash.match(/error_description=([^&]+)/)?.[1];
 
       if (errorDesc) {
-        toast({ title: "Link inválido", description: decodeURIComponent(errorDesc), variant: "destructive" });
+        const decodedError = decodeURIComponent(errorDesc).replace(/\+/g, " ");
+        setErrorMsg(decodedError);
+        toast({ title: "Link inválido", description: decodedError, variant: "destructive" });
         return;
       }
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
+          setErrorMsg(error.message);
           toast({ title: "Erro", description: error.message, variant: "destructive" });
           return;
         }
@@ -42,9 +51,17 @@ export default function ResetPassword() {
         return;
       }
 
-      // Fallback: hash-based recovery tokens
+      // Fallback: hash-based recovery tokens or existing active session
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) setReady(true);
+      if (session) {
+        setReady(true);
+      } else {
+        // If there's no code and no access_token / recovery type in hash, it's missing
+        const hash = window.location.hash;
+        if (!hash.includes("access_token") && !hash.includes("recovery")) {
+          setErrorMsg("Sessão não encontrada ou link de recuperação em falta.");
+        }
+      }
     })();
 
     return () => subscription.unsubscribe();
@@ -83,33 +100,49 @@ export default function ResetPassword() {
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Nova palavra-passe</CardTitle>
           <CardDescription>
-            {ready ? "Defina a sua nova palavra-passe" : "A validar link de recuperação..."}
+            {errorMsg ? "Ocorreu um problema" : ready ? "Defina a sua nova palavra-passe" : "A validar link de recuperação..."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Nova palavra-passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              disabled={!ready}
-            />
-            <Input
-              type="password"
-              placeholder="Confirmar palavra-passe"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-              minLength={6}
-              disabled={!ready}
-            />
-            <Button type="submit" className="w-full" disabled={loading || !ready}>
-              {loading ? "A guardar..." : "Atualizar palavra-passe"}
-            </Button>
-          </form>
+          {errorMsg ? (
+            <div className="space-y-4 text-center py-2">
+              <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-lg border border-destructive/20 leading-relaxed">
+                {errorMsg === "Sessão não encontrada ou link de recuperação em falta." 
+                  ? "Não foi encontrada nenhuma sessão de recuperação ativa ou o link é inválido."
+                  : errorMsg}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Este link pode ter expirado ou já ter sido utilizado. Por favor, peça ao administrador para gerar um novo convite/link de acesso para o seu utilizador.
+              </p>
+              <Button onClick={() => navigate("/login")} variant="outline" className="w-full">
+                Voltar ao Login
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input
+                type="password"
+                placeholder="Nova palavra-passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                disabled={!ready}
+              />
+              <Input
+                type="password"
+                placeholder="Confirmar palavra-passe"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={6}
+                disabled={!ready}
+              />
+              <Button type="submit" className="w-full" disabled={loading || !ready}>
+                {loading ? "A guardar..." : "Atualizar palavra-passe"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
