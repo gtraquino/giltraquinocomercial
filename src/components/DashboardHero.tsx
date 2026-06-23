@@ -133,7 +133,11 @@ export default function DashboardHero({ role }: DashboardHeroProps) {
             </div>
             
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2 flex items-center gap-2">
-              {getGreeting()}, <span className="text-primary">{getUserDisplayName()}</span>!
+              {getGreeting()}{" "}
+              <span className="text-primary">
+                {role === "admin" ? "Administrador" : "Gestor"}
+              </span>
+              !
             </h1>
             
             <p className="text-muted-foreground text-sm md:text-base leading-relaxed mb-6">
