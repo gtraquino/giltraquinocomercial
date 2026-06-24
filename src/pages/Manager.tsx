@@ -4,15 +4,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone, Lock } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
 import ManagerLinks from "@/components/admin/ManagerLinks";
+import InvoicingManager from "@/components/admin/InvoicingManager";
+import StockManager from "@/components/admin/StockManager";
 import { isStoreBlocked } from "@/lib/billing";
 import DashboardHero from "@/components/DashboardHero";
 
-type Tab = "products" | "contact" | "link" | "reports";
+type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices";
 
 export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -95,9 +97,11 @@ export default function Manager() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
+    { id: "stock", label: "Stock", icon: <Boxes className="h-4 w-4" /> },
     { id: "contact", label: "Contactos", icon: <Phone className="h-4 w-4" /> },
     { id: "link", label: "Link", icon: <Link2 className="h-4 w-4" /> },
     { id: "reports", label: "Pedidos", icon: <FileText className="h-4 w-4" /> },
+    { id: "invoices", label: "Facturação", icon: <Receipt className="h-4 w-4" /> },
   ];
 
   return (
@@ -130,9 +134,11 @@ export default function Manager() {
       <main className="mx-auto max-w-7xl p-4 md:p-6">
         <DashboardHero role="manager" />
         {tab === "products" && <ProductManager />}
+        {tab === "stock" && <StockManager />}
         {tab === "contact" && <ManagerContact />}
         {tab === "link" && <ManagerLinks />}
         {tab === "reports" && <OrdersReport />}
+        {tab === "invoices" && <InvoicingManager />}
       </main>
     </div>
   );

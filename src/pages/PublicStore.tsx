@@ -17,6 +17,7 @@ import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock, Lock } 
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { isStoreBlocked } from "@/lib/billing";
+import { parseProductDescription, formatProductDescription } from "@/utils/stock";
 
 interface CartItem {
   id: string;
@@ -136,6 +137,35 @@ export default function PublicStore() {
     });
     if (error) {
       toast({ title: "Aviso", description: "Pedido enviado mas não foi possível gravar para relatório.", variant: "destructive" });
+    }
+
+    // Decrement stock for each item ordered
+    for (const item of items) {
+      try {
+        const { data: prod, error: fetchErr } = await supabase
+          .from("products")
+          .select("description, in_stock")
+          .eq("id", item.id)
+          .single();
+        if (fetchErr || !prod) continue;
+
+        const { cleanDescription, stockQty } = parseProductDescription(prod.description);
+        if (stockQty !== null) {
+          const newQty = Math.max(0, stockQty - item.qty);
+          const updatedDescription = formatProductDescription(cleanDescription, newQty);
+          const updatedInStock = newQty > 0;
+
+          await supabase
+            .from("products")
+            .update({
+              description: updatedDescription,
+              in_stock: updatedInStock
+            })
+            .eq("id", item.id);
+        }
+      } catch (e) {
+        console.error("Error updating stock quantity:", e);
+      }
     }
   };
 
@@ -300,6 +330,7 @@ export default function PublicStore() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {products.filter((p) => (p.category || "Outros") === cat).map((p) => {
                     const inCart = cart.find((c) => c.id === p.id);
+                    const { cleanDescription, stockQty } = parseProductDescription(p.description);
                     return (
                       <Card
                         key={p.id}
@@ -316,8 +347,15 @@ export default function PublicStore() {
                           )}
                           <div className="min-w-0 flex-1">
                             <h3 className="font-medium truncate">{p.name}</h3>
-                            {p.description && <p className="text-sm text-muted-foreground line-clamp-1">{p.description}</p>}
-                            <p className="text-sm font-semibold mt-1">{Number(p.price).toFixed(2)} {store.currency}</p>
+                            {cleanDescription && <p className="text-sm text-muted-foreground line-clamp-1">{cleanDescription}</p>}
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-sm font-semibold">{Number(p.price).toFixed(2)} {store.currency}</p>
+                              {stockQty !== null && (
+                                <span className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${stockQty === 0 ? "bg-red-50 text-red-600" : stockQty <= 3 ? "bg-amber-50 text-amber-600 animate-pulse" : "bg-slate-50 text-slate-500"}`}>
+                                  {stockQty === 0 ? "Esgotado" : `${stockQty} un.`}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {inCart && (
                             <span className="shrink-0 rounded-full bg-primary/10 text-primary text-xs font-medium px-2 py-1">
@@ -368,115 +406,129 @@ export default function PublicStore() {
         )}
       </div>
 
-      {/* Product action dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto pb-20 sm:pb-6">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selected.name}</DialogTitle>
-                {selected.description && (
-                  <DialogDescription>{selected.description}</DialogDescription>
-                )}
-              </DialogHeader>
+          {selected && (() => {
+            const { cleanDescription, stockQty } = parseProductDescription(selected.description);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{selected.name}</DialogTitle>
+                  {cleanDescription && (
+                    <DialogDescription>{cleanDescription}</DialogDescription>
+                  )}
+                </DialogHeader>
 
-              <div className="space-y-4 py-2">
-                {selected.image_url && (
-                  <img src={selected.image_url} alt={selected.name} className="w-full h-48 object-cover rounded-lg" />
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Preço unitário</span>
-                  <span className="font-semibold">
-                    {Number(selected.price).toFixed(2)} {store.currency}
-                  </span>
-                </div>
+                <div className="space-y-4 py-2">
+                  {selected.image_url && (
+                    <img src={selected.image_url} alt={selected.name} className="w-full h-48 object-cover rounded-lg" />
+                  )}
+                  
+                  {stockQty !== null && (
+                    <div className={`text-xs p-2.5 rounded-lg border flex items-center justify-between ${stockQty === 0 ? "bg-red-50 border-red-100 text-red-700" : stockQty <= 3 ? "bg-amber-50 border-amber-100 text-amber-700 font-medium animate-pulse" : "bg-slate-50 border-slate-100 text-slate-600"}`}>
+                      <span>Inventário disponível:</span>
+                      <span className="font-bold">{stockQty} unidades</span>
+                    </div>
+                  )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="qty">Quantidade</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    >
-                      −
-                    </Button>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Preço unitário</span>
+                    <span className="font-semibold">
+                      {Number(selected.price).toFixed(2)} {store.currency}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="qty">Quantidade</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      >
+                        −
+                      </Button>
+                      <Input
+                        id="qty"
+                        type="number"
+                        min={1}
+                        max={stockQty !== null ? stockQty : undefined}
+                        value={qty}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setQty(Math.max(1, stockQty !== null ? Math.min(stockQty, val) : val));
+                        }}
+                        className="text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQty((q) => stockQty !== null ? Math.min(stockQty, q + 1) : q + 1)}
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <span className="text-sm text-muted-foreground">Subtotal</span>
+                    <span className="text-lg font-bold">
+                      {(Number(selected.price) * qty).toFixed(2)} {store.currency}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-3">
+                    <Label htmlFor="cust-name">O seu nome *</Label>
                     <Input
-                      id="qty"
-                      type="number"
-                      min={1}
-                      value={qty}
-                      onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="text-center"
+                      id="cust-name"
+                      placeholder="Nome completo"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      maxLength={80}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQty((q) => q + 1)}
-                    >
-                      +
-                    </Button>
+                    <Label htmlFor="cust-phone">O seu contacto *</Label>
+                    <Input
+                      id="cust-phone"
+                      type="tel"
+                      placeholder="Ex: 244923456789"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      maxLength={20}
+                    />
+                    <p className="text-xs text-muted-foreground">Obrigatório para enviar o pedido via WhatsApp.</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t pt-3">
-                  <span className="text-sm text-muted-foreground">Subtotal</span>
-                  <span className="text-lg font-bold">
-                    {(Number(selected.price) * qty).toFixed(2)} {store.currency}
-                  </span>
-                </div>
-
-                <div className="space-y-2 border-t pt-3">
-                  <Label htmlFor="cust-name">O seu nome *</Label>
-                  <Input
-                    id="cust-name"
-                    placeholder="Nome completo"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    maxLength={80}
-                  />
-                  <Label htmlFor="cust-phone">O seu contacto *</Label>
-                  <Input
-                    id="cust-phone"
-                    type="tel"
-                    placeholder="Ex: 244923456789"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    maxLength={20}
-                  />
-                  <p className="text-xs text-muted-foreground">Obrigatório para enviar o pedido via WhatsApp.</p>
-                </div>
-              </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
-                <Button
-                  variant="outline"
-                  onClick={closeDialog}
-                  className="gap-2 w-full sm:w-auto"
-                >
-                  <X className="h-4 w-4" />
-                  Cancelar
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={saveToCart}
-                  className="gap-2 w-full sm:w-auto"
-                >
-                  <Save className="h-4 w-4" />
-                  Gravar
-                </Button>
-                <Button
-                  onClick={orderNow}
-                  className="gap-2 w-full sm:w-auto"
-                >
-                  <Send className="h-4 w-4" />
-                  Pedir
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={closeDialog}
+                    className="gap-2 w-full sm:w-auto"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={saveToCart}
+                    className="gap-2 w-full sm:w-auto"
+                  >
+                    <Save className="h-4 w-4" />
+                    Gravar
+                  </Button>
+                  <Button
+                    onClick={orderNow}
+                    className="gap-2 w-full sm:w-auto"
+                  >
+                    <Send className="h-4 w-4" />
+                    Pedir
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
