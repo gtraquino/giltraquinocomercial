@@ -266,6 +266,9 @@ export default function InvoicingManager() {
           address: settings.address || null,
           whatsapp: settings.phone || selectedStore.whatsapp || null,
           whatsapp2: null,
+          email: settings.email || null,
+          ivaRate: settings.ivaRate || "0",
+          prefix: settings.prefix || "FT",
         };
 
         exportInvoicePDF(orderRecord, reportMeta);
@@ -323,6 +326,9 @@ export default function InvoicingManager() {
       address: settings.address || null,
       whatsapp: settings.phone || selectedStore.whatsapp || null,
       whatsapp2: null,
+      email: settings.email || null,
+      ivaRate: settings.ivaRate || "0",
+      prefix: settings.prefix || "FT",
     };
 
     exportInvoicePDF(orderRecord, reportMeta);
@@ -348,6 +354,9 @@ export default function InvoicingManager() {
       address: settings.address || null,
       whatsapp: settings.phone || selectedStore.whatsapp || null,
       whatsapp2: null,
+      email: settings.email || null,
+      ivaRate: settings.ivaRate || "0",
+      prefix: settings.prefix || "FT",
     };
 
     exportInvoiceDOCX(orderRecord, reportMeta);
