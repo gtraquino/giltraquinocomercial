@@ -203,6 +203,8 @@ export default function InvoicingManager() {
       const { data, error } = await supabase.from("orders").insert(orderPayload).select().single();
       if (error) throw error;
 
+      const lowStockWarnings: { name: string; qty: number }[] = [];
+
       // Decrement stock levels locally using identical trigger loop
       for (const item of invoiceItems) {
         try {
@@ -226,15 +228,20 @@ export default function InvoicingManager() {
                 in_stock: updatedInStock
               })
               .eq("id", item.id);
+
+            if (newQty <= 5) {
+              lowStockWarnings.push({ name: item.name, qty: newQty });
+            }
           }
         } catch (e) {
           console.error("Error decrementing stock on manual sale:", e);
         }
       }
 
-      return data;
+      return { order: data, lowStockWarnings };
     },
-    onSuccess: (newOrder) => {
+    onSuccess: (result) => {
+      const { order: newOrder, lowStockWarnings } = result;
       queryClient.invalidateQueries({ queryKey: ["orders-invoicing", selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ["products", selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ["products-for-invoicing", selectedStoreId] });
@@ -270,7 +277,26 @@ export default function InvoicingManager() {
       setClientNif("");
       setInvoiceItems([]);
       setSubTab("list");
-      toast({ title: "Fatura emitida com sucesso!", description: "O stock foi decrementado e o PDF gerado." });
+      
+      toast({ 
+        title: "Fatura emitida com sucesso!", 
+        description: "O stock foi decrementado e o PDF gerado." 
+      });
+
+      // Show warnings for low/out-of-stock items
+      if (lowStockWarnings.length > 0) {
+        lowStockWarnings.forEach((warning, index) => {
+          setTimeout(() => {
+            toast({
+              title: warning.qty === 0 ? "🚨 Produto Esgotado!" : "⚠️ Alerta: Stock Mínimo Atingido!",
+              description: warning.qty === 0 
+                ? `O produto "${warning.name}" está agora totalmente sem stock!` 
+                : `O produto "${warning.name}" tem apenas ${warning.qty} unidades restantes no stock!`,
+              variant: "destructive"
+            });
+          }, 200 * (index + 1));
+        });
+      }
     },
     onError: (e: Error) => {
       toast({ title: "Erro ao emitir fatura", description: e.message, variant: "destructive" });

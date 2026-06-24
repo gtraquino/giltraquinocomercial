@@ -92,6 +92,8 @@ export default function StockManager() {
       inStock 
     }: { 
       productId: string; 
+      productName: string;
+      oldQty: number | null;
       cleanDescription: string; 
       newQty: number | null; 
       inStock: boolean 
@@ -106,9 +108,68 @@ export default function StockManager() {
         .eq("id", productId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["products-for-stock-manager", selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ["products", selectedStoreId] });
+
+      const { productName, oldQty, newQty, inStock } = variables;
+
+      if (newQty !== null) {
+        if (oldQty !== null) {
+          if (newQty > oldQty) {
+            toast({
+              title: "📥 Entrada de Stock Registada",
+              description: `Foram adicionadas +${newQty - oldQty} unidades para "${productName}". Novo stock: ${newQty} un.`,
+            });
+          } else if (newQty < oldQty) {
+            toast({
+              title: "📤 Saída de Stock Registada",
+              description: `Foram retiradas -${oldQty - newQty} unidades de "${productName}". Restam: ${newQty} un.`,
+            });
+
+            // Warn about low stock
+            if (newQty <= 5 && newQty > 0) {
+              toast({
+                title: "⚠️ Alerta: Stock Mínimo!",
+                description: `O produto "${productName}" atingiu o limite mínimo de segurança (restam apenas ${newQty} un.).`,
+                variant: "destructive",
+              });
+            } else if (newQty === 0) {
+              toast({
+                title: "🚨 Alerta: Produto Esgotado!",
+                description: `O produto "${productName}" está agora totalmente sem stock.`,
+                variant: "destructive",
+              });
+            }
+          } else {
+            // No qty change but maybe toggled inStock
+            toast({
+              title: inStock ? "🟢 Produto Ativo" : "🔴 Produto Inativo",
+              description: `O produto "${productName}" está agora ${inStock ? "ativo para venda" : "inativo/oculto na loja"}.`,
+            });
+          }
+        } else {
+          // Transitioned from unlimited to limited
+          toast({
+            title: "⚙️ Stock Limitado Configurado",
+            description: `O produto "${productName}" foi alterado de stock ilimitado para stock de ${newQty} un.`,
+          });
+        }
+      } else {
+        if (oldQty !== null) {
+          // Transitioned to unlimited
+          toast({
+            title: "⚙️ Stock Ilimitado Configurado",
+            description: `O produto "${productName}" agora tem stock ilimitado (sempre disponível).`,
+          });
+        } else {
+          // Just toggled inStock while unlimited
+          toast({
+            title: inStock ? "🟢 Produto Ativo" : "🔴 Produto Inativo",
+            description: `O produto "${productName}" está agora ${inStock ? "ativo para venda" : "inativo/oculto na loja"}.`,
+          });
+        }
+      }
     },
     onError: (err: any) => {
       toast({
@@ -120,7 +181,7 @@ export default function StockManager() {
   });
 
   const handleQtyChange = (product: typeof products[0], newQty: number | null) => {
-    const { cleanDescription } = parseProductDescription(product.description);
+    const { cleanDescription, stockQty } = parseProductDescription(product.description);
     
     // Automatically set out of stock if quantity is 0
     let calculatedInStock = product.in_stock;
@@ -134,6 +195,8 @@ export default function StockManager() {
 
     updateStockMutation.mutate({
       productId: product.id,
+      productName: product.name,
+      oldQty: stockQty,
       cleanDescription,
       newQty,
       inStock: calculatedInStock
@@ -141,13 +204,15 @@ export default function StockManager() {
   };
 
   const handleToggleUnlimited = (product: typeof products[0], currentlyUnlimited: boolean) => {
-    const { cleanDescription } = parseProductDescription(product.description);
+    const { cleanDescription, stockQty } = parseProductDescription(product.description);
     
     const newQty = currentlyUnlimited ? 10 : null; // default to 10 if switching to limited
     const calculatedInStock = true; // both are in stock initially
 
     updateStockMutation.mutate({
       productId: product.id,
+      productName: product.name,
+      oldQty: stockQty,
       cleanDescription,
       newQty,
       inStock: calculatedInStock
@@ -165,6 +230,8 @@ export default function StockManager() {
 
     updateStockMutation.mutate({
       productId: product.id,
+      productName: product.name,
+      oldQty: stockQty,
       cleanDescription,
       newQty: correctedQty,
       inStock: newInStock
@@ -306,6 +373,76 @@ export default function StockManager() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Alerts Panel */}
+          {parsedProducts.filter((p) => p.status === "low_stock" || p.status === "out_of_stock").length > 0 && (
+            <Card className="border-l-4 border-l-amber-500 bg-amber-50/10 shadow-xs">
+              <CardHeader className="pb-3 pt-4">
+                <CardTitle className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Alertas de Ruptura ou Stock Mínimo ({parsedProducts.filter((p) => p.status === "low_stock" || p.status === "out_of_stock").length})
+                </CardTitle>
+                <CardDescription className="text-xs text-amber-700">
+                  Os seguintes produtos encontram-se esgotados ou com stock abaixo do nível mínimo de segurança recomendado (≤ 5 un.). Dê entrada rápida de stock usando os botões de ajuste de unidades.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {parsedProducts
+                    .filter((p) => p.status === "low_stock" || p.status === "out_of_stock")
+                    .slice(0, 6)
+                    .map((p) => (
+                      <div key={p.id} className="bg-white p-3 rounded-lg border border-amber-100 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-200 transition-all">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-xs text-slate-800 truncate" title={p.name}>
+                            {p.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {p.status === "out_of_stock" ? (
+                              <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-sm">Esgotado</span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-sm">Baixo: {p.stockQty} un.</span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-medium truncate">({p.category || "Outros"})</span>
+                          </div>
+                        </div>
+                        
+                        {/* Quick Stock Addition actions */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="h-7 px-2 text-[10px] border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900 flex items-center gap-1 font-semibold"
+                            onClick={() => {
+                              const oldVal = p.stockQty || 0;
+                              handleQtyChange(p, oldVal + 10);
+                            }}
+                          >
+                            +10 Un.
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="h-7 px-2 text-[10px] border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900 flex items-center gap-1 font-semibold"
+                            onClick={() => {
+                              const oldVal = p.stockQty || 0;
+                              handleQtyChange(p, oldVal + 20);
+                            }}
+                          >
+                            +20 Un.
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  {parsedProducts.filter((p) => p.status === "low_stock" || p.status === "out_of_stock").length > 6 && (
+                    <div className="col-span-full text-center text-[11px] text-slate-500 font-medium pt-1">
+                      E mais {parsedProducts.filter((p) => p.status === "low_stock" || p.status === "out_of_stock").length - 6} produtos com alertas. Use os filtros de stock na tabela abaixo para ver a lista completa.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Filters Bar */}
           <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
