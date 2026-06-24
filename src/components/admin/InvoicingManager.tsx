@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2, FileText, Settings, CreditCard, Receipt, FileDown, ShoppingBag } from "lucide-react";
 import { parseProductDescription } from "@/utils/stock";
-import { exportInvoicePDF, exportInvoiceDOCX, OrderRecord } from "@/lib/reportExport";
+import { exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 
 interface InvoiceSettings {
   companyName: string;
@@ -21,6 +21,7 @@ interface InvoiceSettings {
   email: string;
   ivaRate: string;
   prefix: string;
+  defaultFormat?: string;
 }
 
 const defaultSettings = (storeName: string): InvoiceSettings => ({
@@ -31,6 +32,7 @@ const defaultSettings = (storeName: string): InvoiceSettings => ({
   email: "",
   ivaRate: "0",
   prefix: "FT/",
+  defaultFormat: "A4",
 });
 
 export default function InvoicingManager() {
@@ -49,6 +51,15 @@ export default function InvoicingManager() {
 
   // Settings state
   const [settings, setSettings] = useState<InvoiceSettings>(defaultSettings(""));
+  const [currentPrintFormat, setCurrentPrintFormat] = useState<"A4" | "Ticket">("A4");
+
+  useEffect(() => {
+    if (settings && settings.defaultFormat) {
+      setCurrentPrintFormat(settings.defaultFormat as any);
+    } else {
+      setCurrentPrintFormat("A4");
+    }
+  }, [settings]);
 
   const { data: stores = [] } = useQuery({
     queryKey: ["stores-scoped-invoicing", isAdmin, user?.id],
@@ -85,7 +96,11 @@ export default function InvoicingManager() {
       const saved = localStorage.getItem(`invoice_settings_${selectedStoreId}`);
       if (saved) {
         try {
-          setSettings(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setSettings({
+            ...defaultSettings(selectedStore.name),
+            ...parsed,
+          });
         } catch (e) {
           setSettings(defaultSettings(selectedStore.name));
         }
@@ -271,7 +286,11 @@ export default function InvoicingManager() {
           prefix: settings.prefix || "FT",
         };
 
-        exportInvoicePDF(orderRecord, reportMeta);
+        if (currentPrintFormat === "Ticket") {
+          exportInvoiceTicketPDF(orderRecord, reportMeta);
+        } else {
+          exportInvoicePDF(orderRecord, reportMeta);
+        }
       }
 
       // Reset Create Form
@@ -360,6 +379,34 @@ export default function InvoicingManager() {
     };
 
     exportInvoiceDOCX(orderRecord, reportMeta);
+  };
+
+  const handleDownloadInvoiceTicket = (order: any) => {
+    if (!selectedStore) return;
+    const orderRecord: OrderRecord = {
+      id: order.id,
+      created_at: order.created_at,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      items: order.items,
+      total: order.total,
+      currency: order.currency,
+    };
+
+    const reportMeta = {
+      storeName: settings.companyName || selectedStore.name,
+      dateLabel: new Date(order.created_at).toLocaleDateString("pt-PT"),
+      currency: order.currency,
+      nif: settings.companyNif || null,
+      address: settings.address || null,
+      whatsapp: settings.phone || selectedStore.whatsapp || null,
+      whatsapp2: null,
+      email: settings.email || null,
+      ivaRate: settings.ivaRate || "0",
+      prefix: settings.prefix || "FT",
+    };
+
+    exportInvoiceTicketPDF(orderRecord, reportMeta);
   };
 
   return (
@@ -474,7 +521,7 @@ export default function InvoicingManager() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 gap-1 text-xs"
+                                    className="h-8 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                     onClick={() => handleDownloadInvoice(o)}
                                   >
                                     <FileDown className="h-3.5 w-3.5" /> PDF
@@ -482,7 +529,15 @@ export default function InvoicingManager() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 gap-1 text-xs"
+                                    className="h-8 gap-1 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                    onClick={() => handleDownloadInvoiceTicket(o)}
+                                  >
+                                    <Receipt className="h-3.5 w-3.5" /> Ticket
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                                     onClick={() => handleDownloadInvoiceDocx(o)}
                                   >
                                     <FileText className="h-3.5 w-3.5" /> Word
@@ -630,6 +685,22 @@ export default function InvoicingManager() {
                       />
                     </div>
 
+                    <div className="space-y-1">
+                      <Label htmlFor="checkout-print-format" className="text-xs font-semibold">Formato do Documento</Label>
+                      <Select 
+                        value={currentPrintFormat} 
+                        onValueChange={(val: any) => setCurrentPrintFormat(val)}
+                      >
+                        <SelectTrigger id="checkout-print-format" className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A4">A4 (Padrão)</SelectItem>
+                          <SelectItem value="Ticket">Ticket (80mm)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="border-t pt-4 space-y-2.5">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Valor Tributável:</span>
@@ -652,7 +723,11 @@ export default function InvoicingManager() {
                       className="w-full mt-4 gap-2"
                     >
                       <Receipt className="h-4 w-4" />
-                      {createInvoiceMutation.isPending ? "A processar..." : "Emitir Fatura & Descarregar PDF"}
+                      {createInvoiceMutation.isPending 
+                        ? "A processar..." 
+                        : currentPrintFormat === "Ticket" 
+                          ? "Emitir Fatura & Descarregar Ticket" 
+                          : "Emitir Fatura & Descarregar PDF A4"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -733,8 +808,20 @@ export default function InvoicingManager() {
                         required
                       />
                     </div>
-                    <div className="space-y-1 flex items-end">
-                      <p className="text-xs text-muted-foreground pb-2">Exemplo: FT 2026/0001</p>
+                    <div className="space-y-1">
+                      <Label htmlFor="default-format">Formato de Impressão Padrão</Label>
+                      <Select 
+                        value={settings.defaultFormat || "A4"} 
+                        onValueChange={(val) => setSettings({ ...settings, defaultFormat: val })}
+                      >
+                        <SelectTrigger id="default-format">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A4">A4 (Padrão)</SelectItem>
+                          <SelectItem value="Ticket">Ticket (80mm)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

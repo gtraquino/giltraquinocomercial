@@ -658,3 +658,251 @@ export async function exportOrdersDOCX(orders: OrderRecord[], meta: ReportMeta) 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `pedidos-${meta.storeName}-${meta.dateLabel}.docx`);
 }
+
+export function exportInvoiceTicketPDF(order: OrderRecord, meta: ReportMeta & { email?: string | null; ivaRate?: string; prefix?: string }) {
+  // 1. Extract and format customer name and NIF
+  let clientName = order.customer_name || "Consumidor Final";
+  let clientNif = "999999999"; // standard final consumer NIF in Angola
+  const nifMatch = clientName.match(/(.*?)\s*\(NIF:\s*([^\)]+)\)/i);
+  if (nifMatch) {
+    clientName = nifMatch[1].trim();
+    clientNif = nifMatch[2].trim();
+  }
+
+  // 2. Generate deterministic AGT 2026 series & invoice number
+  const d = new Date(order.created_at);
+  const year = d.getFullYear();
+  const dateStr = d.toLocaleDateString("pt-PT") + " " + d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+  
+  let hash = 0;
+  for (let i = 0; i < order.id.length; i++) {
+    hash = order.id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const seqNum = Math.abs(hash % 999) + 1;
+  const seqStr = String(seqNum).padStart(3, "0");
+  const prefix = meta.prefix || "FT"; // "FT" is Factura, "FR" is Factura-Recibo, etc.
+  const invoiceNo = `${prefix} A/${year}-${seqStr}`;
+
+  // Calculate dynamic height based on item list and metadata details
+  const itemHeightEstimate = order.items.length * 8;
+  const ticketHeight = Math.max(160, 130 + itemHeightEstimate + (meta.address ? 8 : 0) + (meta.whatsapp ? 5 : 0));
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [80, ticketHeight]
+  });
+
+  const marginX = 4;
+  const pageWidth = 80;
+  const contentWidth = pageWidth - (marginX * 2); // 72mm
+  const colRightX = pageWidth - marginX; // 76mm
+
+  // 4. Header Section (Emissor) - Centered for thermal paper
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59); // Slate-800
+  doc.text(meta.storeName, pageWidth / 2, 8, { align: "center" });
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105); // Slate-600
+  
+  let y = 12.5;
+  doc.text(`NIF: ${meta.nif || "999999999"}`, pageWidth / 2, y, { align: "center" }); y += 4;
+  if (meta.address) { 
+    const splitAddress = doc.splitTextToSize(meta.address, contentWidth);
+    splitAddress.forEach((line: string) => {
+      doc.text(line, pageWidth / 2, y, { align: "center" });
+      y += 4;
+    });
+  }
+  const contacts = [meta.whatsapp, meta.whatsapp2].filter(Boolean).join(" / ");
+  if (contacts) { 
+    doc.text(`Tel: ${contacts}`, pageWidth / 2, y, { align: "center" }); 
+    y += 4; 
+  }
+  if (meta.email) {
+    doc.text(`Email: ${meta.email}`, pageWidth / 2, y, { align: "center" });
+    y += 4;
+  }
+
+  // 5. Divider Line
+  doc.setDrawColor(203, 213, 225); // Slate-300
+  doc.setLineWidth(0.3);
+  doc.line(marginX, y, colRightX, y);
+  y += 5;
+
+  // 6. Document Type and Number
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42); // Slate-900
+  doc.text("TICKET DE FACTURA", pageWidth / 2, y, { align: "center" });
+  y += 4.5;
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text(invoiceNo, pageWidth / 2, y, { align: "center" });
+  y += 4.5;
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139); // Slate-500
+  doc.text(`Data: ${dateStr}`, marginX, y);
+  doc.text(`Série: A/${year}`, colRightX, y, { align: "right" });
+  y += 4;
+  doc.text("Moeda: Kwanza (AOA)", marginX, y);
+  y += 4.5;
+
+  // Divider
+  doc.line(marginX, y - 1, colRightX, y - 1);
+  y += 3;
+
+  // 7. Client Information Block
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text("DADOS DO CLIENTE", marginX, y);
+  y += 3.5;
+  
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Nome: ${clientName}`, marginX, y);
+  y += 3.5;
+  doc.text(`NIF: ${clientNif}`, marginX, y);
+  if (order.customer_phone) {
+    doc.text(`Tel: ${order.customer_phone}`, colRightX, y, { align: "right" });
+  }
+  y += 4;
+
+  // Divider
+  doc.line(marginX, y - 1, colRightX, y - 1);
+  y += 2.5;
+
+  // 8. Item Table (using autoTable optimized for narrow receipt size)
+  const ivaRateValue = Number(meta.ivaRate || "0");
+  const ivaLabelGlobal = ivaRateValue > 0 ? `${ivaRateValue}%` : "0% (Isento)";
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: marginX, right: marginX },
+    head: [["Prod", "Qtd", "Preço", "Total"]],
+    body: order.items.map((i) => {
+      const itemSubtotal = Number(i.price) * Number(i.qty);
+      return [
+        i.name,
+        String(i.qty),
+        `${Number(i.price).toFixed(2)}`,
+        `${itemSubtotal.toFixed(2)}`,
+      ];
+    }),
+    styles: { 
+      fontSize: 7, 
+      cellPadding: 1.2, 
+      textColor: [51, 65, 85], // Slate-700
+      lineColor: [241, 245, 249],
+      lineWidth: 0.2
+    },
+    headStyles: { 
+      fillColor: [30, 41, 59], // Slate-800
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      fontSize: 7
+    },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { cellWidth: 8, halign: "center" },
+      2: { cellWidth: 16, halign: "right" },
+      3: { cellWidth: 16, halign: "right" }
+    }
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // 9. Totals Calculation & Drawing
+  const subtotal = Number(order.total);
+  const ivaAmount = (subtotal * ivaRateValue) / 100;
+  const grandTotal = subtotal + ivaAmount;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  
+  doc.text("Subtotal:", marginX, y);
+  doc.text(`${subtotal.toFixed(2)} Kz`, colRightX, y, { align: "right" });
+  y += 3.5;
+
+  doc.text(`IVA (${ivaRateValue}%):`, marginX, y);
+  doc.text(`${ivaAmount.toFixed(2)} Kz`, colRightX, y, { align: "right" });
+  y += 4;
+
+  doc.setDrawColor(226, 232, 240);
+  doc.line(marginX, y - 1, colRightX, y - 1);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text("Total Geral:", marginX, y + 2);
+  doc.text(`${grandTotal.toFixed(2)} Kz`, colRightX, y + 2, { align: "right" });
+  y += 7.5;
+
+  // 10. Draw AGT QR Code / Validation stamp (Compact Size)
+  const qrX = marginX + 2;
+  const qrY = y + 2;
+  const qrSize = 18;
+  drawQRCode(doc, qrX, qrY, qrSize, order.id);
+
+  // 11. Fiscal Metadata next to QR Code
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(100, 116, 139);
+  
+  const metaX = qrX + qrSize + 4;
+  const md5Simulated = (order.id.slice(0, 4) + "-" + order.id.slice(9, 13) + "-" + order.id.slice(14, 18) + "-" + order.id.slice(20, 24)).toUpperCase();
+  
+  doc.setFont("helvetica", "bold");
+  doc.text("ELEMENTOS FISCAIS (AGT)", metaX, qrY + 2);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Cód: ${md5Simulated}`, metaX, qrY + 5);
+  doc.text("Software certificado nº 2026/01", metaX, qrY + 8);
+  doc.text(`Série de Facturação: A/${year}`, metaX, qrY + 11);
+  doc.text("Processado por computador", metaX, qrY + 14);
+  y += qrSize + 6;
+
+  // 12. Terms / Payment Conditions Section (Compact)
+  doc.setDrawColor(241, 245, 249);
+  doc.line(marginX, y - 1, colRightX, y - 1);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text("CONDIÇÕES DE PAGAMENTO", marginX, y + 2);
+  y += 5;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(100, 116, 139);
+  doc.text("Ref. Multicaixa / TPA / Numerário", marginX, y); y += 3;
+  doc.text("Pronto Pagamento / Pagamento Imediato", marginX, y); y += 3.5;
+
+  // Legal exemption text if IVA is 0
+  if (ivaRateValue === 0) {
+    const isentoText = "Isenção: Isento ao abrigo do nº 1 do Artigo 12.º do Código do IVA.";
+    const splitExempt = doc.splitTextToSize(isentoText, contentWidth);
+    splitExempt.forEach((line: string) => {
+      doc.text(line, marginX, y);
+      y += 3;
+    });
+  }
+
+  // Footer / Greeting
+  y += 1.5;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text("Obrigado pela sua preferência!", pageWidth / 2, y, { align: "center" });
+
+  // Save the PDF
+  doc.save(`Ticket-${invoiceNo.replace(/\//g, "_")}.pdf`);
+}
+

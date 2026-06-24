@@ -23,7 +23,7 @@ import {
   ArrowUpDown,
   Download
 } from "lucide-react";
-import { exportOrdersPDF, exportOrdersDOCX, exportInvoicePDF, exportInvoiceDOCX, OrderRecord } from "@/lib/reportExport";
+import { exportOrdersPDF, exportOrdersDOCX, exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 import { toast } from "@/hooks/use-toast";
 
 type SubTab = "date" | "product" | "customer";
@@ -485,6 +485,14 @@ export default function OrdersReport() {
                                     onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: startDate, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}
                                   >
                                     <Receipt className="h-3 w-3" /> PDF
+                                  </Button>
+                                  <Button 
+                                    size="xs" 
+                                    variant="outline" 
+                                    className="h-7 text-[11px] gap-1 px-2" 
+                                    onClick={() => selectedStore && exportInvoiceTicketPDF(o, { storeName: selectedStore.name, dateLabel: startDate, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}
+                                  >
+                                    <Receipt className="h-3 w-3" /> Ticket
                                   </Button>
                                   <Button 
                                     size="xs" 
