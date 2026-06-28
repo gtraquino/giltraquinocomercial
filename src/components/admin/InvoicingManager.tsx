@@ -416,7 +416,7 @@ export default function InvoicingManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ borderColor: "#3b62a5" }}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Facturação & POS</h2>
@@ -445,6 +445,7 @@ export default function InvoicingManager() {
               size="sm"
               onClick={() => setSubTab("list")}
               className="gap-2"
+              style={{ color: "#2157c2" }}
             >
               <Receipt className="h-4 w-4" />
               Histórico de Vendas
@@ -494,7 +495,7 @@ export default function InvoicingManager() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Nº Documento</TableHead>
+                          <TableHead style={{ color: "#1448c0" }}>Nº Documento</TableHead>
                           <TableHead>Data</TableHead>
                           <TableHead>Cliente</TableHead>
                           <TableHead>Contacto</TableHead>
@@ -504,7 +505,7 @@ export default function InvoicingManager() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {orders.map((o) => {
+                        {orders.map((o, index) => {
                           const docNo = o.id.slice(0, 8).toUpperCase();
                           const dateStr = new Date(o.created_at).toLocaleDateString("pt-PT", {
                             day: "2-digit",
@@ -516,7 +517,12 @@ export default function InvoicingManager() {
                           const itemsCount = o.items ? o.items.reduce((acc: number, item: any) => acc + (item.qty || 1), 0) : 0;
                           return (
                             <TableRow key={o.id}>
-                              <TableCell className="font-mono font-bold text-xs">{settings.prefix || "FT/"}{docNo}</TableCell>
+                              <TableCell 
+                                className="font-mono font-bold text-xs"
+                                style={index === 1 ? { color: "#234ea3" } : undefined}
+                              >
+                                {settings.prefix || "FT/"}{docNo}
+                              </TableCell>
                               <TableCell className="text-xs">{dateStr}</TableCell>
                               <TableCell className="font-medium text-xs">{o.customer_name || "Consumidor Final"}</TableCell>
                               <TableCell className="text-xs text-muted-foreground">{o.customer_phone || "—"}</TableCell>

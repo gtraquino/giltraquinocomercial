@@ -82,7 +82,7 @@ export default function Admin() {
         )}
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6">
+      <main className="mx-auto max-w-7xl p-4 md:p-6" style={{ borderColor: "#4d79c3" }}>
         <DashboardHero role="admin" />
         {tab === "stores" && <StoreManager />}
         {tab === "products" && <ProductManager />}

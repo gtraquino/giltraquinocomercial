@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes, Menu, X } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
@@ -19,6 +19,7 @@ type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices";
 export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>("products");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { data: myStores = [], isLoading: mgrLoading } = useQuery({
     queryKey: ["my-managed-stores-billing", user?.id],
@@ -36,7 +37,7 @@ export default function Manager() {
       // Step 2: Fetch stores details for those ids
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, is_blocked, paid_until")
+        .select("id, name, is_blocked, paid_until, primary_color, accent_color")
         .in("id", ids)
         .order("name");
       if (error) throw error;
@@ -104,34 +105,70 @@ export default function Manager() {
     { id: "invoices", label: "Facturação", icon: <Receipt className="h-4 w-4" /> },
   ];
 
+  const activeStore = myStores[0];
+  const themeStyle = activeStore && ((activeStore as any).primary_color || (activeStore as any).accent_color) ? {
+    ["--primary" as any]: (activeStore as any).primary_color || undefined,
+    ["--accent" as any]: (activeStore as any).accent_color || (activeStore as any).primary_color || undefined,
+    ["--ring" as any]: (activeStore as any).primary_color || undefined,
+    backgroundColor: `hsl(${(activeStore as any).primary_color || (activeStore as any).accent_color} / 0.04)`,
+  } as React.CSSProperties : undefined;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden" style={themeStyle}>
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 gap-2">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+          <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
               <Store className="h-5 w-5" />
             </div>
             <span className="font-bold text-lg hidden sm:block">Painel do Gestor</span>
           </div>
-          <nav className="flex items-center gap-1">
+
+          <nav className="hidden md:flex items-center gap-1">
             {tabs.map((t) => (
-              <Button key={t.id} variant={tab === t.id ? "default" : "ghost"} size="sm" onClick={() => setTab(t.id)} className="gap-2">
+              <Button 
+                key={t.id} 
+                variant={tab === t.id ? "default" : "ghost"} 
+                size="sm" 
+                onClick={() => setTab(t.id)} 
+                className="gap-2 flex items-center"
+              >
                 {t.icon}
-                <span className="hidden sm:inline">{t.label}</span>
+                <span>{t.label}</span>
               </Button>
             ))}
           </nav>
+
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden md:block truncate max-w-[160px]">{user.email}</span>
+            <span className="text-sm text-muted-foreground hidden lg:block truncate max-w-[160px]">{user.email}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
           </div>
         </div>
+
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t px-4 py-2 space-y-1 bg-card/95">
+            {tabs.map((t) => (
+              <Button 
+                key={t.id} 
+                variant={tab === t.id ? "default" : "ghost"} 
+                size="sm" 
+                onClick={() => { setTab(t.id); setMobileMenuOpen(false); }} 
+                className="w-full justify-start gap-2 flex items-center"
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </Button>
+            ))}
+          </div>
+        )}
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6">
+      <main className="mx-auto max-w-7xl p-4 md:p-6" style={{ borderColor: "#4d79c3" }}>
         <DashboardHero role="manager" />
         {tab === "products" && <ProductManager />}
         {tab === "stock" && <StockManager />}

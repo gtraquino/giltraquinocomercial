@@ -268,6 +268,7 @@ export default function PublicStore() {
     ["--primary" as any]: store.primary_color || undefined,
     ["--accent" as any]: store.accent_color || store.primary_color || undefined,
     ["--ring" as any]: store.primary_color || undefined,
+    backgroundColor: `hsl(${store.primary_color || store.accent_color} / 0.04)`,
   } as React.CSSProperties : undefined;
 
   const heroColor = store.primary_color || store.accent_color;

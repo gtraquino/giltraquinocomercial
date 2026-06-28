@@ -117,7 +117,8 @@ export default function DashboardHero({ role }: DashboardHeroProps) {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card/90 via-card/50 to-background p-6 md:p-8 mb-8 shadow-sm"
+      className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-card/90 via-card/50 to-background p-6 md:p-8 mb-8 shadow-sm"
+      style={{ borderColor: "hsl(var(--primary, 217 71% 35%) / 0.35)" }}
     >
       {/* Decorative Blur Blobs */}
       <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
@@ -127,7 +128,10 @@ export default function DashboardHero({ role }: DashboardHeroProps) {
         {/* Left Side: Greeting, Message and Clock */}
         <div className="flex flex-col justify-between max-w-xl">
           <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-4 border border-primary/15 uppercase tracking-wider">
+            <div 
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-4 border border-primary/15 uppercase tracking-wider"
+              style={{ color: "#28885b" }}
+            >
               <Sparkles className="h-3 w-3 animate-pulse" />
               {role === "admin" ? "Acesso Administrador" : "Área do Gestor"}
             </div>
@@ -155,8 +159,8 @@ export default function DashboardHero({ role }: DashboardHeroProps) {
             </div>
             <div className="hidden sm:block h-3 w-px bg-muted-foreground/20" />
             <div className="flex items-center gap-1.5 px-1 font-mono text-primary font-semibold">
-              <Clock className="h-4 w-4 text-primary shrink-0" />
-              <span>{formattedTime}</span>
+              <Clock className="h-4 w-4 text-primary shrink-0" style={{ color: "#1ea163" }} />
+              <span style={{ color: "#1ea163" }}>{formattedTime}</span>
             </div>
           </div>
         </div>
