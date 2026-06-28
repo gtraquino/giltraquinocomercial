@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2, FileText, Settings, CreditCard, Receipt, FileDown, ShoppingBag } from "lucide-react";
 import { parseProductDescription } from "@/utils/stock";
 import { exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
+import ExportInvoiceDialog from "./ExportInvoiceDialog";
 
 interface InvoiceSettings {
   companyName: string;
@@ -40,6 +41,11 @@ export default function InvoicingManager() {
   const { user, isAdmin } = useAuth();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [subTab, setSubTab] = useState<"list" | "create" | "settings">("list");
+
+  // Export dialog state
+  const [exportOrder, setExportOrder] = useState<any | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"A4" | "Ticket" | undefined>(undefined);
 
   // Manual invoice creation state
   const [clientName, setClientName] = useState("");
@@ -522,7 +528,11 @@ export default function InvoicingManager() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                    onClick={() => handleDownloadInvoice(o)}
+                                    onClick={() => {
+                                      setExportFormat("A4");
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <FileDown className="h-3.5 w-3.5" /> PDF
                                   </Button>
@@ -530,7 +540,11 @@ export default function InvoicingManager() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 gap-1 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                    onClick={() => handleDownloadInvoiceTicket(o)}
+                                    onClick={() => {
+                                      setExportFormat("Ticket");
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <Receipt className="h-3.5 w-3.5" /> Ticket
                                   </Button>
@@ -538,7 +552,11 @@ export default function InvoicingManager() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 gap-1 text-xs text-slate-600 hover:text-slate-700 hover:bg-slate-50"
-                                    onClick={() => handleDownloadInvoiceDocx(o)}
+                                    onClick={() => {
+                                      setExportFormat(undefined);
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <FileText className="h-3.5 w-3.5" /> Word
                                   </Button>
@@ -843,6 +861,14 @@ export default function InvoicingManager() {
           )}
         </div>
       )}
+
+      <ExportInvoiceDialog
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        order={exportOrder}
+        store={selectedStore}
+        initialFormat={exportFormat}
+      />
     </div>
   );
 }

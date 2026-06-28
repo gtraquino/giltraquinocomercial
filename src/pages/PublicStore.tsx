@@ -125,8 +125,30 @@ export default function PublicStore() {
     });
   };
 
-  const persistOrder = async (items: CartItem[], total: number) => {
-    if (!store) return;
+  const persistOrder = async (items: CartItem[], total: number): Promise<boolean> => {
+    if (!store) return false;
+
+    // Live-check store block status before any database write or proceeding to prevent bypassed orders
+    try {
+      const { data: latestStore, error: storeErr } = await supabase
+        .from("stores")
+        .select("is_blocked, paid_until")
+        .eq("id", store.id)
+        .single();
+
+      if (storeErr || !latestStore || isStoreBlocked(latestStore as any)) {
+        toast({
+          title: "Loja temporariamente indisponível",
+          description: "Esta loja está fora de serviço (subscrição expirada ou suspensa) e não pode receber novos pedidos.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (e) {
+      console.error("Erro ao verificar estado da loja:", e);
+      return false;
+    }
+
     const { error } = await supabase.from("orders").insert({
       store_id: store.id,
       customer_name: customerName.trim(),
@@ -167,6 +189,8 @@ export default function PublicStore() {
         console.error("Error updating stock quantity:", e);
       }
     }
+
+    return true;
   };
 
   const orderNow = async () => {
@@ -174,8 +198,9 @@ export default function PublicStore() {
     if (!validateCustomer()) return;
     const lineTotal = Number(selected.price) * qty;
     const item: CartItem = { id: selected.id, name: selected.name, price: Number(selected.price), qty };
+    const success = await persistOrder([item], lineTotal);
+    if (!success) return;
     const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
-    await persistOrder([item], lineTotal);
     sendToAllNumbers(msg);
     closeDialog();
   };
@@ -193,8 +218,9 @@ export default function PublicStore() {
     cart.forEach((c) => {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
+    const success = await persistOrder(cart, total);
+    if (!success) return;
     const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
-    await persistOrder(cart, total);
     sendToAllNumbers(msg);
   };
 

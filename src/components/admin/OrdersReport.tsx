@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { exportOrdersPDF, exportOrdersDOCX, exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 import { toast } from "@/hooks/use-toast";
+import ExportInvoiceDialog from "./ExportInvoiceDialog";
 
 type SubTab = "date" | "product" | "customer";
 
@@ -52,6 +53,11 @@ export default function OrdersReport() {
   // Sort states
   const [productSortField, setProductSortField] = useState<"qty" | "total">("total");
   const [customerSortField, setCustomerSortField] = useState<"count" | "total">("total");
+
+  // Export dialog states
+  const [exportOrder, setExportOrder] = useState<any | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"A4" | "Ticket" | undefined>(undefined);
 
   // Stores visible to this user: admins see all; managers see only their managed ones
   const { data: stores = [] } = useQuery({
@@ -482,7 +488,11 @@ export default function OrdersReport() {
                                     size="xs" 
                                     variant="outline" 
                                     className="h-7 text-[11px] gap-1 px-2" 
-                                    onClick={() => selectedStore && exportInvoicePDF(o, { storeName: selectedStore.name, dateLabel: startDate, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}
+                                    onClick={() => {
+                                      setExportFormat("A4");
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <Receipt className="h-3 w-3" /> PDF
                                   </Button>
@@ -490,7 +500,11 @@ export default function OrdersReport() {
                                     size="xs" 
                                     variant="outline" 
                                     className="h-7 text-[11px] gap-1 px-2" 
-                                    onClick={() => selectedStore && exportInvoiceTicketPDF(o, { storeName: selectedStore.name, dateLabel: startDate, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}
+                                    onClick={() => {
+                                      setExportFormat("Ticket");
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <Receipt className="h-3 w-3" /> Ticket
                                   </Button>
@@ -498,7 +512,11 @@ export default function OrdersReport() {
                                     size="xs" 
                                     variant="outline" 
                                     className="h-7 text-[11px] gap-1 px-2" 
-                                    onClick={() => selectedStore && exportInvoiceDOCX(o, { storeName: selectedStore.name, dateLabel: startDate, currency: selectedStore.currency, nif: (selectedStore as any).nif, address: (selectedStore as any).address, whatsapp: (selectedStore as any).whatsapp, whatsapp2: (selectedStore as any).whatsapp_2 })}
+                                    onClick={() => {
+                                      setExportFormat(undefined);
+                                      setExportOrder(o);
+                                      setIsExportOpen(true);
+                                    }}
                                   >
                                     <Receipt className="h-3 w-3" /> Word
                                   </Button>
@@ -681,6 +699,24 @@ export default function OrdersReport() {
             </Card>
           )}
         </div>
+      )}
+
+      {selectedStore && (
+        <ExportInvoiceDialog
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          order={exportOrder}
+          store={{
+            id: selectedStore.id,
+            name: selectedStore.name,
+            currency: selectedStore.currency,
+            nif: (selectedStore as any).nif,
+            address: (selectedStore as any).address,
+            whatsapp: (selectedStore as any).whatsapp,
+            whatsapp_2: (selectedStore as any).whatsapp_2,
+          }}
+          initialFormat={exportFormat}
+        />
       )}
     </div>
   );
