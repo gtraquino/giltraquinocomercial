@@ -4,17 +4,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes, Menu, X } from "lucide-react";
+import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes, Menu, X, Database } from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
 import ManagerLinks from "@/components/admin/ManagerLinks";
 import InvoicingManager from "@/components/admin/InvoicingManager";
 import StockManager from "@/components/admin/StockManager";
+import BackupManager from "@/components/admin/BackupManager";
 import { isStoreBlocked } from "@/lib/billing";
 import DashboardHero from "@/components/DashboardHero";
 
-type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices";
+type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices" | "backups";
 
 export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -103,6 +104,7 @@ export default function Manager() {
     { id: "link", label: "Link", icon: <Link2 className="h-4 w-4" /> },
     { id: "reports", label: "Pedidos", icon: <FileText className="h-4 w-4" /> },
     { id: "invoices", label: "Facturação", icon: <Receipt className="h-4 w-4" /> },
+    { id: "backups", label: "Backups", icon: <Database className="h-4 w-4" /> },
   ];
 
   const activeStore = myStores[0];
@@ -176,6 +178,7 @@ export default function Manager() {
         {tab === "link" && <ManagerLinks />}
         {tab === "reports" && <OrdersReport />}
         {tab === "invoices" && <InvoicingManager />}
+        {tab === "backups" && <BackupManager />}
       </main>
     </div>
   );
