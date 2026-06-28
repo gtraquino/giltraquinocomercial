@@ -9,6 +9,7 @@ import LinkGenerator from "@/components/admin/LinkGenerator";
 import OrdersReport from "@/components/admin/OrdersReport";
 import BillingManager from "@/components/admin/BillingManager";
 import DashboardHero from "@/components/DashboardHero";
+import DatabaseSettings from "@/components/DatabaseSettings";
 
 type Tab = "stores" | "products" | "links" | "reports" | "billing";
 
@@ -90,6 +91,7 @@ export default function Admin() {
         {tab === "reports" && <OrdersReport />}
         {tab === "billing" && <BillingManager />}
       </main>
+      <DatabaseSettings />
     </div>
   );
 }
