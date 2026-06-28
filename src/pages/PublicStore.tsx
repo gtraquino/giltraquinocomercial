@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock, Lock } from "lucide-react";
+import { MessageCircle, Store, ShoppingBag, Send, Save, X, Phone, Clock, Lock, Smartphone, CheckCircle2, Loader2, CreditCard, Wallet, Banknote } from "lucide-react";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { isStoreBlocked } from "@/lib/billing";
@@ -74,6 +74,78 @@ export default function PublicStore() {
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"mcx" | "cash" | "transfer" | "tpa">("mcx");
+  const [mcxDialog, setMcxDialog] = useState<{
+    isOpen: boolean;
+    step: "pending" | "success" | "failed";
+    phone: string;
+    total: number;
+    items: CartItem[];
+    onComplete: (refCode: string) => void;
+    timer: number;
+  } | null>(null);
+
+  // Reusable payment selector grid
+  const renderPaymentSelector = () => {
+    return (
+      <div className="space-y-2 pb-1">
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forma de Pagamento</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("mcx")}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${paymentMethod === "mcx" ? "border-primary bg-primary/5 text-primary ring-1 ring-primary" : "border-muted hover:bg-slate-50"}`}
+          >
+            <Smartphone className="h-4 w-4 mb-1 text-blue-600" />
+            <span className="text-[11px] font-bold">MCX Express</span>
+            <span className="text-[9px] text-muted-foreground">Telemóvel (AO)</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("cash")}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${paymentMethod === "cash" ? "border-primary bg-primary/5 text-primary ring-1 ring-primary" : "border-muted hover:bg-slate-50"}`}
+          >
+            <Banknote className="h-4 w-4 mb-1 text-emerald-600" />
+            <span className="text-[11px] font-bold">Dinheiro</span>
+            <span className="text-[9px] text-muted-foreground">Na entrega</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("transfer")}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/5 text-primary ring-1 ring-primary" : "border-muted hover:bg-slate-50"}`}
+          >
+            <Wallet className="h-4 w-4 mb-1 text-amber-600" />
+            <span className="text-[11px] font-bold">IBAN / Transfer.</span>
+            <span className="text-[9px] text-muted-foreground">Enviar comprovativo</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("tpa")}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${paymentMethod === "tpa" ? "border-primary bg-primary/5 text-primary ring-1 ring-primary" : "border-muted hover:bg-slate-50"}`}
+          >
+            <CreditCard className="h-4 w-4 mb-1 text-indigo-600" />
+            <span className="text-[11px] font-bold">Multicaixa TPA</span>
+            <span className="text-[9px] text-muted-foreground">Cartão na entrega</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const startMcxPayment = (itemsToPay: CartItem[], totalToPay: number, triggerComplete: (ref: string) => void) => {
+    setMcxDialog({
+      isOpen: true,
+      step: "pending",
+      phone: customerPhone.trim(),
+      total: totalToPay,
+      items: itemsToPay,
+      onComplete: triggerComplete,
+      timer: 15,
+    });
+  };
 
   const saveToCart = () => {
     if (!selected) return;
@@ -125,7 +197,26 @@ export default function PublicStore() {
     });
   };
 
-  const persistOrder = async (items: CartItem[], total: number): Promise<boolean> => {
+  // Handle MCX countdown timer
+  useState(() => {
+    const checkTimer = setInterval(() => {
+      setMcxDialog((prev) => {
+        if (!prev || !prev.isOpen || prev.step !== "pending") return prev;
+        if (prev.timer <= 1) {
+          return { ...prev, step: "success", timer: 0 };
+        }
+        return { ...prev, timer: prev.timer - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(checkTimer);
+  });
+
+  const persistOrder = async (
+    items: CartItem[], 
+    total: number, 
+    payMethod: "mcx" | "cash" | "transfer" | "tpa",
+    mcxRef?: string
+  ): Promise<boolean> => {
     if (!store) return false;
 
     // Live-check store block status before any database write or proceeding to prevent bypassed orders
@@ -149,9 +240,21 @@ export default function PublicStore() {
       return false;
     }
 
+    // Append payment method info in name for clean dashboard viewing
+    let nameWithPayment = customerName.trim();
+    if (payMethod === "mcx") {
+      nameWithPayment += ` [MCX Express: Pago - Ref ${mcxRef || "OK"}]`;
+    } else if (payMethod === "cash") {
+      nameWithPayment += ` [Dinheiro]`;
+    } else if (payMethod === "transfer") {
+      nameWithPayment += ` [Trf. IBAN]`;
+    } else if (payMethod === "tpa") {
+      nameWithPayment += ` [Multicaixa TPA]`;
+    }
+
     const { error } = await supabase.from("orders").insert({
       store_id: store.id,
-      customer_name: customerName.trim(),
+      customer_name: nameWithPayment,
       customer_phone: customerPhone.trim(),
       items: items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })) as any,
       total,
@@ -198,11 +301,28 @@ export default function PublicStore() {
     if (!validateCustomer()) return;
     const lineTotal = Number(selected.price) * qty;
     const item: CartItem = { id: selected.id, name: selected.name, price: Number(selected.price), qty };
-    const success = await persistOrder([item], lineTotal);
-    if (!success) return;
-    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
-    sendToAllNumbers(msg);
-    closeDialog();
+
+    if (paymentMethod === "mcx") {
+      startMcxPayment([item], lineTotal, async (refCode) => {
+        const success = await persistOrder([item], lineTotal, "mcx", refCode);
+        if (!success) return;
+        const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (PAGO) 📱✅\n*Referência MCX:* ${refCode}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+        sendToAllNumbers(msg);
+        closeDialog();
+      });
+    } else {
+      const success = await persistOrder([item], lineTotal, paymentMethod);
+      if (!success) return;
+      const paymentLabels = {
+        cash: "Dinheiro 💵",
+        transfer: "Transferência / IBAN 🏦",
+        tpa: "Multicaixa TPA 💳"
+      };
+      const label = paymentLabels[paymentMethod] || paymentMethod;
+      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+      sendToAllNumbers(msg);
+      closeDialog();
+    }
   };
 
   const removeFromCart = (id: string) => {
@@ -218,10 +338,28 @@ export default function PublicStore() {
     cart.forEach((c) => {
       items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
     });
-    const success = await persistOrder(cart, total);
-    if (!success) return;
-    const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
-    sendToAllNumbers(msg);
+
+    if (paymentMethod === "mcx") {
+      startMcxPayment(cart, total, async (refCode) => {
+        const success = await persistOrder(cart, total, "mcx", refCode);
+        if (!success) return;
+        const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (PAGO) 📱✅\n*Referência MCX:* ${refCode}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+        sendToAllNumbers(msg);
+        setCart([]);
+      });
+    } else {
+      const success = await persistOrder(cart, total, paymentMethod);
+      if (!success) return;
+      const paymentLabels = {
+        cash: "Dinheiro 💵",
+        transfer: "Transferência / IBAN 🏦",
+        tpa: "Multicaixa TPA 💳"
+      };
+      const label = paymentLabels[paymentMethod] || paymentMethod;
+      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+      sendToAllNumbers(msg);
+      setCart([]);
+    }
   };
 
   const isLoading = storeLoading || productsLoading;
@@ -418,6 +556,7 @@ export default function PublicStore() {
                   maxLength={20}
                 />
               </div>
+              {renderPaymentSelector()}
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm text-muted-foreground">{cart.reduce((s, c) => s + c.qty, 0)} itens</p>
@@ -526,6 +665,9 @@ export default function PublicStore() {
                     />
                     <p className="text-xs text-muted-foreground">Obrigatório para enviar o pedido via WhatsApp.</p>
                   </div>
+                  <div className="border-t pt-3">
+                    {renderPaymentSelector()}
+                  </div>
                 </div>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
@@ -554,6 +696,111 @@ export default function PublicStore() {
                   </Button>
                 </DialogFooter>
               </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Multicaixa Express Simulation Dialog */}
+      <Dialog open={!!mcxDialog?.isOpen} onOpenChange={(open) => !open && setMcxDialog(null)}>
+        <DialogContent className="sm:max-w-md text-center p-6">
+          <DialogHeader className="items-center">
+            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+              <Smartphone className="h-6 w-6 text-blue-600 animate-pulse" />
+            </div>
+            <DialogTitle className="text-xl font-extrabold text-slate-900">Pagamento Multicaixa Express</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              {mcxDialog?.step === "pending" 
+                ? "Autorização enviada para o seu telemóvel"
+                : mcxDialog?.step === "success" 
+                ? "Pagamento confirmado com sucesso!"
+                : "Falha na confirmação do pagamento"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {mcxDialog?.step === "pending" && (
+            <div className="space-y-6 py-4">
+              <div className="flex flex-col items-center justify-center">
+                <div className="relative flex items-center justify-center">
+                  {/* Pulsing ring */}
+                  <div className="absolute inset-0 rounded-full bg-blue-400/20 animate-ping h-20 w-20" />
+                  <div className="h-20 w-20 rounded-full border-4 border-t-blue-600 border-r-blue-200 border-b-blue-200 border-l-blue-200 animate-spin flex items-center justify-center">
+                    <Smartphone className="h-8 w-8 text-blue-600" />
+                  </div>
+                </div>
+                <p className="mt-4 font-mono font-bold text-lg tracking-wider text-slate-800">
+                  {mcxDialog?.total.toFixed(2)} {store?.currency}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Número MCX: <span className="font-semibold text-slate-700">{mcxDialog?.phone}</span></p>
+              </div>
+
+              <div className="bg-slate-50 border rounded-xl p-4 text-left space-y-2">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Como Confirmar:</p>
+                <ol className="text-xs text-slate-600 list-decimal pl-4 space-y-1">
+                  <li>Abra o aplicativo <span className="font-semibold text-slate-800">Multicaixa Express</span> no seu telemóvel.</li>
+                  <li>Aceda a <span className="font-semibold text-slate-800">Notificações</span> ou <span className="font-semibold text-slate-800">Compras</span>.</li>
+                  <li>Autorize o pagamento pendente de <span className="font-semibold text-slate-800">{(mcxDialog?.total || 0).toFixed(2)} {store?.currency}</span>.</li>
+                </ol>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <Button 
+                  onClick={() => {
+                    const refCode = "MCX-" + Math.floor(Math.random() * 9000000 + 1000000);
+                    setMcxDialog(prev => prev ? { ...prev, step: "success", timer: 0 } : null);
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Simular Confirmação
+                </Button>
+                <p className="text-[10px] text-muted-foreground">
+                  A aguardar confirmação da rede EMIS... (Auto-confirma em {mcxDialog?.timer}s)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {mcxDialog?.step === "success" && (() => {
+            const mockRef = "MCX-" + Math.floor(Math.random() * 9000000 + 1000000);
+            return (
+              <div className="space-y-6 py-4">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3 animate-bounce">
+                    <CheckCircle2 className="h-10 w-10" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">Pagamento Autorizado!</h3>
+                  <p className="text-sm text-slate-500 mt-1">Transação processada pela EMIS</p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2 text-left">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Valor pago:</span>
+                    <span className="font-bold text-slate-800">{mcxDialog?.total.toFixed(2)} {store?.currency}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Contacto MCX:</span>
+                    <span className="font-semibold text-slate-800">{mcxDialog?.phone}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="text-muted-foreground">Referência:</span>
+                    <span className="font-mono font-bold text-blue-600">{mockRef}</span>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    if (mcxDialog) {
+                      mcxDialog.onComplete(mockRef);
+                    }
+                    setMcxDialog(null);
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Concluir e Enviar via WhatsApp
+                </Button>
+              </div>
             );
           })()}
         </DialogContent>
