@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database, Settings, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DatabaseSettings() {
+  const { isAdmin, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [supabaseUrl, setSupabaseUrl] = useState("");
   const [supabaseKey, setSupabaseKey] = useState("");
@@ -14,12 +16,15 @@ export default function DatabaseSettings() {
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
 
   useEffect(() => {
+    if (loading || !isAdmin) return;
     const url = localStorage.getItem("OVERRIDE_SUPABASE_URL") || "";
     const key = localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY") || "";
     setSupabaseUrl(url);
     setSupabaseKey(key);
     setHasOverrides(!!url || !!key);
-  }, [open]);
+  }, [open, isAdmin, loading]);
+
+  if (loading || !isAdmin) return null;
 
   // Handle saving credentials
   const handleSave = () => {
