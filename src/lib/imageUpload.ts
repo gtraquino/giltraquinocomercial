@@ -62,15 +62,27 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 export async function uploadStoreAsset(file: File, folder: "logos" | "products"): Promise<string> {
-  // 1. Compress the image first to ensure optimal performance and small database footprint
+  // 1. Detect if it's an image based on MIME type or extension (for robust mobile/device support)
+  const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
   let compressedBlob: Blob = file;
-  if (file.type.startsWith("image/")) {
+
+  if (isImage) {
     try {
       compressedBlob = await compressImage(file);
     } catch (e) {
       console.warn("Client-side compression failed, using original file:", e);
     }
   }
+
+  // Safe helper to convert the compressed blob/file to Base64 string
+  const convertToBase64 = async (): Promise<string> => {
+    try {
+      return await blobToBase64(compressedBlob);
+    } catch (base64Error) {
+      console.error("Failed to convert image to Base64:", base64Error);
+      throw new Error("Não foi possível carregar a imagem. Por favor tente outro ficheiro.");
+    }
+  };
 
   // 2. Try uploading to Supabase Storage
   try {
@@ -80,28 +92,32 @@ export async function uploadStoreAsset(file: File, folder: "logos" | "products")
     // Convert blob to file so upload metadata works nicely
     const uploadFile = new File([compressedBlob], `image.${ext}`, { type: "image/jpeg" });
 
-    const { error } = await supabase.storage.from("store-assets").upload(path, uploadFile, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+    // Explicitly try-catch the upload to prevent uncaught rejections or errors from escaping
+    let uploadResponse;
+    try {
+      uploadResponse = await supabase.storage.from("store-assets").upload(path, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+    } catch (directUploadError) {
+      console.warn("Direct exception during storage upload, triggering Base64 fallback:", directUploadError);
+      return await convertToBase64();
+    }
 
-    if (error) {
-      // If error occurs, bubble it to try the fallback
-      throw error;
+    if (uploadResponse && uploadResponse.error) {
+      console.warn("Supabase Storage returned an error, triggering Base64 fallback:", uploadResponse.error);
+      return await convertToBase64();
+    }
+
+    if (!uploadResponse || !uploadResponse.data) {
+      console.warn("Supabase Storage did not return data, triggering Base64 fallback");
+      return await convertToBase64();
     }
 
     const { data } = supabase.storage.from("store-assets").getPublicUrl(path);
     return data.publicUrl;
   } catch (storageError) {
-    console.warn("Supabase Storage upload failed or restricted. Falling back to local Base64 storage.", storageError);
-    
-    // 3. Fallback: convert the compressed image to a Base64 string
-    try {
-      const base64String = await blobToBase64(compressedBlob);
-      return base64String;
-    } catch (base64Error) {
-      console.error("Failed to convert image to Base64:", base64Error);
-      throw new Error("Não foi possível carregar a imagem. Por favor tente outro ficheiro.");
-    }
+    console.warn("Supabase Storage upload catch-all. Falling back to local Base64 storage.", storageError);
+    return await convertToBase64();
   }
 }
