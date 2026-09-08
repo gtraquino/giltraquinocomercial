@@ -53,13 +53,6 @@ export type Database = {
             referencedRelation: "stores"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "orders_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       products: {
@@ -107,13 +100,6 @@ export type Database = {
             referencedRelation: "stores"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "products_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       store_managers: {
@@ -141,13 +127,6 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "store_managers_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores_public"
             referencedColumns: ["id"]
           },
         ]
@@ -192,13 +171,6 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "store_payments_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores_public"
             referencedColumns: ["id"]
           },
         ]
@@ -295,63 +267,7 @@ export type Database = {
       }
     }
     Views: {
-      stores_public: {
-        Row: {
-          accent_color: string | null
-          address: string | null
-          closing_time: string | null
-          created_at: string | null
-          currency: string | null
-          hero_title: string | null
-          id: string | null
-          is_blocked: boolean | null
-          logo_url: string | null
-          name: string | null
-          opening_time: string | null
-          primary_color: string | null
-          type: string | null
-          updated_at: string | null
-          whatsapp: string | null
-          whatsapp_2: string | null
-        }
-        Insert: {
-          accent_color?: string | null
-          address?: string | null
-          closing_time?: string | null
-          created_at?: string | null
-          currency?: string | null
-          hero_title?: string | null
-          id?: string | null
-          is_blocked?: boolean | null
-          logo_url?: string | null
-          name?: string | null
-          opening_time?: string | null
-          primary_color?: string | null
-          type?: string | null
-          updated_at?: string | null
-          whatsapp?: string | null
-          whatsapp_2?: string | null
-        }
-        Update: {
-          accent_color?: string | null
-          address?: string | null
-          closing_time?: string | null
-          created_at?: string | null
-          currency?: string | null
-          hero_title?: string | null
-          id?: string | null
-          is_blocked?: boolean | null
-          logo_url?: string | null
-          name?: string | null
-          opening_time?: string | null
-          primary_color?: string | null
-          type?: string | null
-          updated_at?: string | null
-          whatsapp?: string | null
-          whatsapp_2?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
