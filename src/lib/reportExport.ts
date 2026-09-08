@@ -18,12 +18,18 @@ export interface OrderRecord {
   items: OrderItem[];
   total: number;
   currency: string;
+  prefix?: string;
+  email?: string | null;
+  ivaRate?: number;
 }
 
 interface ReportMeta {
   storeName: string;
   dateLabel: string;
   currency: string;
+  prefix?: string;
+  email?: string | null;
+  ivaRate?: number;
   nif?: string | null;
   address?: string | null;
   whatsapp?: string | null;
