@@ -9,7 +9,7 @@ export default function Index() {
   const { data: stores = [] } = useQuery({
     queryKey: ["public-stores"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stores").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("stores").select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
