@@ -18,9 +18,6 @@ export interface OrderRecord {
   items: OrderItem[];
   total: number;
   currency: string;
-  prefix?: string;
-  email?: string | null;
-  ivaRate?: number;
 }
 
 interface ReportMeta {
