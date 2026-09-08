@@ -514,7 +514,8 @@ export default function InvoicingManager() {
                             hour: "2-digit",
                             minute: "2-digit"
                           });
-                          const itemsCount = o.items ? o.items.reduce((acc: number, item: any) => acc + (item.qty || 1), 0) : 0;
+                          const orderItems: any[] = Array.isArray(o.items) ? (o.items as any[]) : [];
+                          const itemsCount = orderItems.reduce((acc: number, item: any) => acc + (item?.qty || 1), 0);
                           return (
                             <TableRow key={o.id}>
                               <TableCell 
