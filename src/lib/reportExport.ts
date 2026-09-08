@@ -26,7 +26,7 @@ interface ReportMeta {
   currency: string;
   prefix?: string;
   email?: string | null;
-  ivaRate?: number;
+  ivaRate?: number | string;
   nif?: string | null;
   address?: string | null;
   whatsapp?: string | null;
