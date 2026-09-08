@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2, FileText, Settings, CreditCard, Receipt, FileDown, ShoppingBag } from "lucide-react";
-import { parseProductDescription } from "@/utils/stock";
+import { parseProductDescription, formatProductDescription } from "@/utils/stock";
 import { exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 import ExportInvoiceDialog from "./ExportInvoiceDialog";
 
@@ -514,7 +514,8 @@ export default function InvoicingManager() {
                             hour: "2-digit",
                             minute: "2-digit"
                           });
-                          const itemsCount = o.items ? o.items.reduce((acc: number, item: any) => acc + (item.qty || 1), 0) : 0;
+                          const orderItems: any[] = Array.isArray(o.items) ? (o.items as any[]) : [];
+                          const itemsCount = orderItems.reduce((acc: number, item: any) => acc + (item?.qty || 1), 0);
                           return (
                             <TableRow key={o.id}>
                               <TableCell 
@@ -526,7 +527,7 @@ export default function InvoicingManager() {
                               <TableCell className="text-xs">{dateStr}</TableCell>
                               <TableCell className="font-medium text-xs">{o.customer_name || "Consumidor Final"}</TableCell>
                               <TableCell className="text-xs text-muted-foreground">{o.customer_phone || "—"}</TableCell>
-                              <TableCell className="text-xs">{itemsCount} un. ({o.items?.length || 0} prod.)</TableCell>
+                              <TableCell className="text-xs">{itemsCount} un. ({orderItems.length} prod.)</TableCell>
                               <TableCell className="font-semibold text-xs">{Number(o.total).toFixed(2)} {o.currency}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">

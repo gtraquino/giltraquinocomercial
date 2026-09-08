@@ -44,7 +44,7 @@ export default function PublicStore() {
   const { data: store, isLoading: storeLoading } = useQuery({
     queryKey: ["public-store", storeId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stores").select("*").eq("id", storeId!).single();
+      const { data, error } = await supabase.from("stores").select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at").eq("id", storeId!).single();
       if (error) throw error;
       return data;
     },
@@ -223,7 +223,7 @@ export default function PublicStore() {
     try {
       const { data: latestStore, error: storeErr } = await supabase
         .from("stores")
-        .select("is_blocked, paid_until")
+        .select("is_blocked")
         .eq("id", store.id)
         .single();
 
