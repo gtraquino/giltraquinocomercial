@@ -95,7 +95,7 @@ export default function StoreManager() {
     }
     setUploading(true);
     try {
-      const url = await uploadStoreAsset(file, "logos");
+      const url = await uploadStoreAsset(file, "logos", editId || undefined);
       const colors = await extractColorsFromImage(url);
       setForm((f) => ({
         ...f,

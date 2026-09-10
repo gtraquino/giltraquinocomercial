@@ -61,7 +61,7 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export async function uploadStoreAsset(file: File, folder: "logos" | "products"): Promise<string> {
+export async function uploadStoreAsset(file: File, folder: "logos" | "products", storeId?: string): Promise<string> {
   // 1. Detect if it's an image based on MIME type or extension (for robust mobile/device support)
   const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
   let compressedBlob: Blob = file;
@@ -87,7 +87,9 @@ export async function uploadStoreAsset(file: File, folder: "logos" | "products")
   // 2. Try uploading to Supabase Storage
   try {
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `${folder}/${crypto.randomUUID()}.${ext}`;
+    const path = storeId
+      ? `${storeId}/${folder}/${crypto.randomUUID()}.${ext}`
+      : `${folder}/${crypto.randomUUID()}.${ext}`;
     
     // Convert blob to file so upload metadata works nicely
     const uploadFile = new File([compressedBlob], `image.${ext}`, { type: "image/jpeg" });

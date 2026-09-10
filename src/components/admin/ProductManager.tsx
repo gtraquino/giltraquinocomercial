@@ -166,7 +166,7 @@ export default function ProductManager() {
     }
     setUploading(true);
     try {
-      const url = await uploadStoreAsset(file, "products");
+      const url = await uploadStoreAsset(file, "products", selectedStoreId);
       setForm((f) => ({ ...f, image_url: url }));
       toast({ title: "Imagem carregada" });
     } catch (err) {

@@ -2,5 +2,7 @@
   "name": "GilPedidos",
   "description": "A modern restaurant ordering platform with WhatsApp integration.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
