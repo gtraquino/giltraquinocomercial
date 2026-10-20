@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "motion/react";
 import { Store, Package, ShoppingBag, Clock, Calendar, Sparkles, TrendingUp, AlertCircle } from "lucide-react";
+import { getManagedStoreIds } from "@/lib/managerStores";
 
 interface DashboardHeroProps {
   role: "admin" | "manager";
@@ -76,14 +77,8 @@ export default function DashboardHero({ role }: DashboardHeroProps) {
   const { data: managerStats, isLoading: managerLoading } = useQuery({
     queryKey: ["manager-hero-stats", user?.id],
     queryFn: async () => {
-      // Get manager's stores
-      const { data: managedStores, error: storeErr } = await supabase
-        .from("store_managers")
-        .select("store_id")
-        .eq("user_id", user!.id);
-
-      if (storeErr) throw storeErr;
-      const storeIds = (managedStores ?? []).map((m) => m.store_id);
+      if (!user) return { storesCount: 0, productsCount: 0, ordersCount: 0 };
+      const storeIds = await getManagedStoreIds(user.id);
 
       if (storeIds.length === 0) {
         return { storesCount: 0, productsCount: 0, ordersCount: 0 };

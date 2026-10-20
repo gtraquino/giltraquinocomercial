@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Store, Upload, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Store, Upload, Sparkles, HardDrive, Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { uploadStoreAsset } from "@/lib/imageUpload";
 import { extractColorsFromImage } from "@/lib/colorExtract";
 import ManagersDialog from "@/components/admin/ManagersDialog";
+import ImageUploader from "@/components/admin/ImageUploader";
 
 interface StoreForm {
   name: string;
+  slug?: string;
   type: "comercial" | "restaurante";
   currency: "Kz" | "USD";
   whatsapp: string;
@@ -25,8 +27,21 @@ interface StoreForm {
   accent_color: string;
 }
 
+function slugify(text: string): string {
+  const base = text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "loja";
+}
+
 const emptyForm: StoreForm = {
-  name: "", type: "comercial", currency: "Kz", whatsapp: "", whatsapp_2: "",
+  name: "", slug: "", type: "comercial", currency: "Kz", whatsapp: "", whatsapp_2: "",
   logo_url: "", primary_color: "", accent_color: "",
 };
 
@@ -49,19 +64,51 @@ export default function StoreManager() {
 
   const upsertMutation = useMutation({
     mutationFn: async (data: StoreForm & { id?: string }) => {
-      const payload = {
-        name: data.name, type: data.type, currency: data.currency, whatsapp: data.whatsapp,
+      const rawSlug = data.slug?.trim() || slugify(data.name);
+      let storeSlug = slugify(rawSlug);
+
+      let candidateSlug = storeSlug;
+      let counter = 1;
+      while (stores.some((s: any) => s.slug === candidateSlug && s.id !== data.id)) {
+        candidateSlug = `${storeSlug}-${counter++}`;
+      }
+      storeSlug = candidateSlug;
+
+      const payloadWithSlug: any = {
+        name: data.name,
+        slug: storeSlug,
+        type: data.type,
+        currency: data.currency,
+        whatsapp: data.whatsapp,
         whatsapp_2: data.whatsapp_2 || null,
         logo_url: data.logo_url || null,
         primary_color: data.primary_color || null,
         accent_color: data.accent_color || null,
       };
+
+      const payloadWithoutSlug: any = {
+        name: data.name,
+        type: data.type,
+        currency: data.currency,
+        whatsapp: data.whatsapp,
+        whatsapp_2: data.whatsapp_2 || null,
+        logo_url: data.logo_url || null,
+        primary_color: data.primary_color || null,
+        accent_color: data.accent_color || null,
+      };
+
       if (data.id) {
-        const { error } = await supabase.from("stores").update(payload).eq("id", data.id);
-        if (error) throw error;
+        let res = await supabase.from("stores").update(payloadWithSlug).eq("id", data.id);
+        if (res.error && res.error.message?.includes("slug")) {
+          res = await supabase.from("stores").update(payloadWithoutSlug).eq("id", data.id);
+        }
+        if (res.error) throw res.error;
       } else {
-        const { error } = await supabase.from("stores").insert({ ...payload, created_by: user!.id });
-        if (error) throw error;
+        let res = await supabase.from("stores").insert({ ...payloadWithSlug, created_by: user!.id });
+        if (res.error && res.error.message?.includes("slug")) {
+          res = await supabase.from("stores").insert({ ...payloadWithoutSlug, created_by: user!.id });
+        }
+        if (res.error) throw res.error;
       }
     },
     onSuccess: () => {
@@ -86,31 +133,50 @@ export default function StoreManager() {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Imagem muito grande", description: "Máx. 5MB", variant: "destructive" });
-      return;
-    }
-    setUploading(true);
-    try {
-      const url = await uploadStoreAsset(file, "logos", editId || undefined);
-      const colors = await extractColorsFromImage(url);
-      setForm((f) => ({
-        ...f,
-        logo_url: url,
-        primary_color: colors?.primary || f.primary_color,
-        accent_color: colors?.accent || f.accent_color,
-      }));
-      toast({
-        title: "Logótipo carregado",
-        description: colors ? "Cores extraídas automaticamente" : "Cores não puderam ser extraídas",
-      });
-    } catch (err) {
-      toast({ title: "Erro no upload", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setUploading(false);
+  const updateLogoMutation = useMutation({
+    mutationFn: async ({ storeId, logoUrl }: { storeId: string; logoUrl: string }) => {
+      let primaryColor: string | undefined;
+      let accentColor: string | undefined;
+      if (logoUrl) {
+        const colors = await extractColorsFromImage(logoUrl);
+        if (colors) {
+          primaryColor = colors.primary;
+          accentColor = colors.accent;
+        }
+      }
+      const payload: any = { logo_url: logoUrl || null };
+      if (primaryColor) payload.primary_color = primaryColor;
+      if (accentColor) payload.accent_color = accentColor;
+      const { error } = await supabase.from("stores").update(payload).eq("id", storeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
+      toast({ title: "Logótipo atualizado", description: "O logótipo da loja foi guardado com sucesso." });
+    },
+    onError: (e: Error) => toast({ title: "Erro ao atualizar logótipo", description: e.message, variant: "destructive" }),
+  });
+
+  const handleLogoChange = async (url: string) => {
+    setForm((f) => ({ ...f, logo_url: url }));
+    if (url) {
+      try {
+        const colors = await extractColorsFromImage(url);
+        if (colors) {
+          setForm((f) => ({
+            ...f,
+            logo_url: url,
+            primary_color: colors.primary || f.primary_color,
+            accent_color: colors.accent || f.accent_color,
+          }));
+          toast({
+            title: "Logótipo processado",
+            description: "Cores da loja extraídas automaticamente.",
+          });
+        }
+      } catch {
+        // Safe fallback
+      }
     }
   };
 
@@ -135,6 +201,7 @@ export default function StoreManager() {
   const openEdit = (store: typeof stores[0]) => {
     setForm({
       name: store.name,
+      slug: (store as any).slug || slugify(store.name),
       type: store.type as "comercial" | "restaurante",
       currency: store.currency as "Kz" | "USD",
       whatsapp: store.whatsapp,
@@ -168,21 +235,57 @@ export default function StoreManager() {
               <DialogTitle>{editId ? "Editar Loja" : "Nova Loja"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input placeholder="Nome da loja" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as StoreForm["type"] })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="comercial">Comercial</SelectItem>
-                  <SelectItem value="restaurante">Restaurante</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v as StoreForm["currency"] })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Kz">Kz (Kwanza)</SelectItem>
-                  <SelectItem value="USD">USD (Dólar)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Nome da loja</Label>
+                <Input
+                  placeholder="Nome da loja"
+                  value={form.name}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      name: newName,
+                      slug: !editId && (!f.slug || f.slug === slugify(f.name)) ? slugify(newName) : f.slug,
+                    }));
+                  }}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Identificador / Link amigável (slug)</Label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-2 rounded-md border">/loja/</span>
+                  <Input
+                    placeholder="minha-loja"
+                    value={form.slug || ""}
+                    onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo de loja</Label>
+                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as StoreForm["type"] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="restaurante">Restaurante</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Moeda</Label>
+                <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v as StoreForm["currency"] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Kz">Kz (Kwanza)</SelectItem>
+                    <SelectItem value="USD">USD (Dólar)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>WhatsApp principal (recebe pedidos)</Label>
                 <Input placeholder="Ex: 244923456789" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required />
@@ -193,22 +296,14 @@ export default function StoreManager() {
               </div>
 
               {/* Logo upload */}
-              <div className="space-y-2">
-                <Label>Logótipo da loja</Label>
-                <div className="flex items-center gap-3">
-                  {form.logo_url ? (
-                    <img src={form.logo_url} alt="Logótipo" className="h-16 w-16 rounded-lg object-cover border" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-lg border border-dashed flex items-center justify-center bg-muted">
-                      <Store className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <Input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} />
-                    <p className="text-xs text-muted-foreground mt-1">As cores serão extraídas automaticamente</p>
-                  </div>
-                </div>
-              </div>
+              <ImageUploader
+                label="Logótipo da loja (escolher do disco rígido)"
+                description="Carregue o logótipo a partir do seu computador. As cores da marca serão extraídas automaticamente."
+                value={form.logo_url}
+                onChange={handleLogoChange}
+                folder="logos"
+                storeId={editId || undefined}
+              />
 
               {/* Color preview */}
               {(form.primary_color || form.accent_color) && (
@@ -286,6 +381,59 @@ export default function StoreManager() {
                   <span>Moeda: <strong className="text-foreground">{store.currency}</strong></span>
                   <span>WhatsApp: <strong className="text-foreground">{store.whatsapp}</strong></span>
                 </div>
+
+                {!store.logo_url ? (
+                  <div className="pt-1">
+                    <label className="cursor-pointer block">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          toast({ title: "A carregar do disco duro...", description: file.name });
+                          try {
+                            const url = await uploadStoreAsset(file, "logos", store.id);
+                            updateLogoMutation.mutate({ storeId: store.id, logoUrl: url });
+                          } catch (err) {
+                            toast({ title: "Erro ao ler ficheiro", description: (err as Error).message, variant: "destructive" });
+                          }
+                        }}
+                      />
+                      <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 border border-dashed rounded-lg bg-primary/5 border-primary/30 hover:bg-primary/10 text-xs font-semibold text-primary transition-all">
+                        <HardDrive className="h-4 w-4" />
+                        <span>Escolher Imagem / Logótipo no Disco Duro</span>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+                    <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" /> Logótipo configurado
+                    </span>
+                    <label className="cursor-pointer text-xs text-primary hover:underline flex items-center gap-1 font-medium">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          toast({ title: "A carregar nova imagem do disco...", description: file.name });
+                          try {
+                            const url = await uploadStoreAsset(file, "logos", store.id);
+                            updateLogoMutation.mutate({ storeId: store.id, logoUrl: url });
+                          } catch (err) {
+                            toast({ title: "Erro ao ler ficheiro", description: (err as Error).message, variant: "destructive" });
+                          }
+                        }}
+                      />
+                      <Camera className="h-3.5 w-3.5" /> Trocar imagem do disco
+                    </label>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(store)}>
                     <Pencil className="h-3 w-3" /> Editar

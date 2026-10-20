@@ -15,6 +15,8 @@ import BackupManager from "@/components/admin/BackupManager";
 import { isStoreBlocked } from "@/lib/billing";
 import DashboardHero from "@/components/DashboardHero";
 
+import { getManagedStoreIds } from "@/lib/managerStores";
+
 type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices" | "backups";
 
 export default function Manager() {
@@ -25,17 +27,10 @@ export default function Manager() {
   const { data: myStores = [], isLoading: mgrLoading } = useQuery({
     queryKey: ["my-managed-stores-billing", user?.id],
     queryFn: async () => {
-      // Step 1: Get store ids from store_managers
-      const { data: mgrRows, error: mgrErr } = await supabase
-        .from("store_managers")
-        .select("store_id")
-        .eq("user_id", user!.id);
-      if (mgrErr) throw mgrErr;
-      
-      const ids = (mgrRows ?? []).map((r: any) => r.store_id);
+      if (!user) return [];
+      const ids = await getManagedStoreIds(user.id);
       if (ids.length === 0) return [];
       
-      // Step 2: Fetch stores details for those ids
       const { data, error } = await supabase
         .from("stores")
         .select("id, name, is_blocked, paid_until, primary_color, accent_color")

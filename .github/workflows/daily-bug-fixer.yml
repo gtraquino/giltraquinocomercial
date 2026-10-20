@@ -1,0 +1,55 @@
+name: Daily Auto-Improving Bug Fixer
+
+on:
+  schedule:
+    # Executa todos os dias às 03:00 UTC (madrugada)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Permite disparo manual sob demanda
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix-bugs:
+    name: Fix Daily Issues & Self-Improve
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Configure Git Safe Identity
+        run: |
+          git config user.name "BugFix Agent [AI]"
+          git config user.email "agent-bot@users.noreply.github.com"
+
+      - name: Run Self-Improving Bug Fixer Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          npm run agent:run
+
+      - name: Persist Updated Learning Memory
+        if: always()
+        run: |
+          git checkout main || true
+          if [ -d ".agent" ]; then
+            git add .agent/knowledge-base.json || true
+            git commit -m "chore(agent): update learning memory and success rate metrics [skip ci]" || true
+            git push origin main || true
+          fi

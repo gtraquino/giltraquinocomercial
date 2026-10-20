@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { isStoreBlocked } from "@/lib/billing";
 import { parseProductDescription, formatProductDescription } from "@/utils/stock";
+import { normalizeWhatsAppNumber } from "@/utils/whatsapp";
 
 interface CartItem {
   id: string;
@@ -36,29 +37,60 @@ type StoreProduct = {
 };
 
 export default function PublicStore() {
+  const queryClient = useQueryClient();
   const { storeId } = useParams<{ storeId: string }>();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selected, setSelected] = useState<StoreProduct | null>(null);
   const [qty, setQty] = useState<number>(1);
 
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeId || "");
+
   const { data: store, isLoading: storeLoading } = useQuery({
     queryKey: ["public-store", storeId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stores").select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at").eq("id", storeId!).single();
-      if (error) throw error;
-      return data;
+      if (isUUID) {
+        const { data, error } = await supabase
+          .from("stores")
+          .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
+          .eq("id", storeId!)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) return data;
+      }
+
+      // Se não for UUID ou se não encontrou por ID, tentar por slug caso a coluna exista
+      try {
+        const { data: slugData, error: slugErr } = await supabase
+          .from("stores")
+          .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
+          .eq("slug" as any, storeId!)
+          .maybeSingle();
+        if (!slugErr && slugData) return slugData;
+      } catch {
+        // coluna slug pode não existir no esquema
+      }
+
+      const { data: fallbackData, error: fallbackErr } = await supabase
+        .from("stores")
+        .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
+        .eq("id", storeId!)
+        .maybeSingle();
+
+      if (fallbackErr) throw fallbackErr;
+      return fallbackData;
     },
     enabled: !!storeId,
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ["public-products", storeId],
+    queryKey: ["public-products", store?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").eq("store_id", storeId!).eq("in_stock", true).order("category", { ascending: true });
+      if (!store?.id) return [];
+      const { data, error } = await supabase.from("products").select("*").eq("store_id", store.id).eq("in_stock", true).order("category", { ascending: true });
       if (error) throw error;
       return data;
     },
-    enabled: !!storeId,
+    enabled: !!store?.id,
   });
 
   const openProduct = (p: StoreProduct) => {
@@ -146,7 +178,8 @@ export default function PublicStore() {
   };
 
   const openWhatsApp = (phone: string, text: string) => {
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const cleanPhone = normalizeWhatsAppNumber(phone);
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     const a = document.createElement("a");
     a.href = url;
     a.target = "_blank";
@@ -173,7 +206,7 @@ export default function PublicStore() {
     if (!store) return;
     const phones = [store.whatsapp, (store as any).whatsapp_2]
       .filter((p): p is string => !!p && p.trim().length > 0)
-      .map((p) => p.replace(/[^0-9]/g, ""))
+      .map((p) => normalizeWhatsAppNumber(p))
       .filter((p) => p.length > 0);
     if (phones.length === 0) return;
     openWhatsApp(phones[0], msg);
@@ -184,10 +217,23 @@ export default function PublicStore() {
 
   const persistOrder = async (
     items: CartItem[], 
-    total: number, 
+    _clientReportedTotal: number, 
     payMethod: "mcx" | "cash" | "transfer" | "tpa"
-  ): Promise<boolean> => {
-    if (!store) return false;
+  ): Promise<{ success: boolean; verifiedTotal: number; verifiedItems: CartItem[] }> => {
+    if (!store) return { success: false, verifiedTotal: 0, verifiedItems: [] };
+
+    // Anti-adulteração: Recalcular os preços verdadeiros a partir dos produtos da loja
+    const verifiedItems: CartItem[] = items.map((item) => {
+      const dbProd = products.find((p) => p.id === item.id);
+      const authenticPrice = dbProd ? Number(dbProd.price) : Number(item.price);
+      return {
+        id: item.id,
+        name: dbProd ? dbProd.name : item.name,
+        price: authenticPrice,
+        qty: Math.max(1, item.qty),
+      };
+    });
+    const verifiedTotal = verifiedItems.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
 
     // Live-check store block status before any database write or proceeding to prevent bypassed orders
     try {
@@ -203,11 +249,11 @@ export default function PublicStore() {
           description: "Esta loja está fora de serviço (subscrição expirada ou suspensa) e não pode receber novos pedidos.",
           variant: "destructive",
         });
-        return false;
+        return { success: false, verifiedTotal, verifiedItems };
       }
     } catch (e) {
       console.error("Erro ao verificar estado da loja:", e);
-      return false;
+      return { success: false, verifiedTotal, verifiedItems };
     }
 
     // Append payment method info in name for clean dashboard viewing
@@ -222,55 +268,77 @@ export default function PublicStore() {
       nameWithPayment += ` [Multicaixa TPA]`;
     }
 
-    const { error } = await supabase.from("orders").insert({
-      store_id: store.id,
-      customer_name: nameWithPayment,
-      customer_phone: customerPhone.trim(),
-      items: items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })) as any,
-      total,
-      currency: store.currency,
-    });
-    if (error) {
-      toast({ title: "Aviso", description: "Pedido enviado mas não foi possível gravar para relatório.", variant: "destructive" });
+    const cleanCustomerPhone = normalizeWhatsAppNumber(customerPhone) || customerPhone.trim();
+
+    // 1. Tentar RPC atómico no servidor para validar e persistir o pedido com preços autênticos
+    let orderPersisted = false;
+    try {
+      const { data: rpcData, error: rpcErr } = await (supabase.rpc as any)("create_public_order", {
+        _store_id: store.id,
+        _customer_name: nameWithPayment,
+        _customer_phone: cleanCustomerPhone,
+        _items: verifiedItems,
+        _currency: store.currency,
+      });
+
+      if (!rpcErr && rpcData && (rpcData as any).ok) {
+        orderPersisted = true;
+      } else if (rpcErr) {
+        console.warn("RPC create_public_order fallback:", rpcErr.message);
+      }
+    } catch (rpcEx) {
+      console.warn("RPC invocation fallback:", rpcEx);
     }
 
-    // Decrement stock for each item ordered
-    for (const item of items) {
-      try {
-        const { data: prod, error: fetchErr } = await supabase
-          .from("products")
-          .select("description, in_stock")
-          .eq("id", item.id)
-          .single();
-        if (fetchErr || !prod) continue;
+    // 2. Fallback resiliente com total estritamente recalculado
+    if (!orderPersisted) {
+      const { error } = await supabase.from("orders").insert({
+        store_id: store.id,
+        customer_name: nameWithPayment,
+        customer_phone: cleanCustomerPhone,
+        items: verifiedItems as any,
+        total: verifiedTotal,
+        currency: store.currency,
+      });
+      if (error) {
+        toast({ title: "Aviso", description: "Pedido enviado mas não foi possível gravar para relatório.", variant: "destructive" });
+      }
+    }
 
+    // 3. Atualizar e decrementar o stock de produtos controlados
+    for (const item of verifiedItems) {
+      try {
+        const prod = products.find((p) => p.id === item.id);
+        if (!prod) continue;
         const { cleanDescription, stockQty } = parseProductDescription(prod.description);
         if (stockQty !== null) {
           const newQty = Math.max(0, stockQty - item.qty);
           const updatedDescription = formatProductDescription(cleanDescription, newQty);
-          const updatedInStock = newQty > 0;
-
           await supabase
             .from("products")
             .update({
               description: updatedDescription,
-              in_stock: updatedInStock
+              in_stock: newQty > 0,
             })
             .eq("id", item.id);
         }
-      } catch (e) {
-        console.error("Error updating stock quantity:", e);
+      } catch (stockErr) {
+        console.warn("Aviso ao decrementar stock:", stockErr);
       }
     }
 
-    return true;
+    // Atualizar a lista de produtos no catálogo público
+    queryClient.invalidateQueries({ queryKey: ["public-products", store.id] });
+
+    return { success: true, verifiedTotal, verifiedItems };
   };
 
   const orderNow = async () => {
     if (!selected || !store) return;
     if (!validateCustomer()) return;
-    const lineTotal = Number(selected.price) * qty;
-    const item: CartItem = { id: selected.id, name: selected.name, price: Number(selected.price), qty };
+    const authenticPrice = Number(selected.price);
+    const lineTotal = authenticPrice * qty;
+    const item: CartItem = { id: selected.id, name: selected.name, price: authenticPrice, qty };
 
     if (paymentMethod === "mcx") {
       setMcxDialog({
@@ -279,23 +347,23 @@ export default function PublicStore() {
         items: [item],
         onConfirm: async () => {
           setMcxDialog(null);
-          const success = await persistOrder([item], lineTotal, "mcx");
-          if (!success) return;
-          const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (Aguardando Comprovativo) 📱⏳\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*\n\n_Comprovativo de pagamento segue em anexo nesta conversa._`;
+          const result = await persistOrder([item], lineTotal, "mcx");
+          if (!result.success) return;
+          const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (Aguardando Comprovativo) 📱⏳\n\n- ${selected.name} x${qty}: ${result.verifiedTotal.toFixed(2)} ${store.currency}\n\n*Total: ${result.verifiedTotal.toFixed(2)} ${store.currency}*\n\n_Comprovativo de pagamento segue em anexo nesta conversa._`;
           sendToAllNumbers(msg);
           closeDialog();
         },
       });
     } else {
-      const success = await persistOrder([item], lineTotal, paymentMethod);
-      if (!success) return;
+      const result = await persistOrder([item], lineTotal, paymentMethod);
+      if (!result.success) return;
       const paymentLabels = {
         cash: "Dinheiro 💵",
         transfer: "Transferência / IBAN 🏦",
         tpa: "Multicaixa TPA 💳"
       };
       const label = paymentLabels[paymentMethod] || paymentMethod;
-      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n- ${selected.name} x${qty}: ${lineTotal.toFixed(2)} ${store.currency}\n\n*Total: ${lineTotal.toFixed(2)} ${store.currency}*`;
+      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n- ${selected.name} x${qty}: ${result.verifiedTotal.toFixed(2)} ${store.currency}\n\n*Total: ${result.verifiedTotal.toFixed(2)} ${store.currency}*`;
       sendToAllNumbers(msg);
       closeDialog();
     }
@@ -305,15 +373,15 @@ export default function PublicStore() {
     setCart((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  const total = cart.reduce((sum, c) => {
+    const dbProd = products.find((p) => p.id === c.id);
+    const authenticPrice = dbProd ? Number(dbProd.price) : Number(c.price);
+    return sum + authenticPrice * c.qty;
+  }, 0);
 
   const sendCartOrder = async () => {
     if (!store || cart.length === 0) return;
     if (!validateCustomer()) return;
-    let items = "";
-    cart.forEach((c) => {
-      items += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
-    });
 
     if (paymentMethod === "mcx") {
       setMcxDialog({
@@ -322,23 +390,35 @@ export default function PublicStore() {
         items: cart,
         onConfirm: async () => {
           setMcxDialog(null);
-          const success = await persistOrder(cart, total, "mcx");
-          if (!success) return;
-          const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (Aguardando Comprovativo) 📱⏳\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*\n\n_Comprovativo de pagamento segue em anexo nesta conversa._`;
+          const result = await persistOrder(cart, total, "mcx");
+          if (!result.success) return;
+
+          let itemsText = "";
+          result.verifiedItems.forEach((c) => {
+            itemsText += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
+          });
+
+          const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* Multicaixa Express (Aguardando Comprovativo) 📱⏳\n\n${itemsText}\n*Total: ${result.verifiedTotal.toFixed(2)} ${store.currency}*\n\n_Comprovativo de pagamento segue em anexo nesta conversa._`;
           sendToAllNumbers(msg);
           setCart([]);
         },
       });
     } else {
-      const success = await persistOrder(cart, total, paymentMethod);
-      if (!success) return;
+      const result = await persistOrder(cart, total, paymentMethod);
+      if (!result.success) return;
+
+      let itemsText = "";
+      result.verifiedItems.forEach((c) => {
+        itemsText += `- ${c.name} x${c.qty}: ${(c.price * c.qty).toFixed(2)} ${store.currency}\n`;
+      });
+
       const paymentLabels = {
         cash: "Dinheiro 💵",
         transfer: "Transferência / IBAN 🏦",
         tpa: "Multicaixa TPA 💳"
       };
       const label = paymentLabels[paymentMethod] || paymentMethod;
-      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n${items}\n*Total: ${total.toFixed(2)} ${store.currency}*`;
+      const msg = `Olá! Novo pedido na loja *${store.name}*:\n\n*Cliente:* ${customerName.trim()}\n*Contacto:* ${customerPhone.trim()}\n*Método de Pagamento:* ${label}\n\n${itemsText}\n*Total: ${result.verifiedTotal.toFixed(2)} ${store.currency}*`;
       sendToAllNumbers(msg);
       setCart([]);
     }

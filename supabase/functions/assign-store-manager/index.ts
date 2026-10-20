@@ -40,19 +40,36 @@ Deno.serve(async (req) => {
       _role: "admin",
     });
     if (roleErr) return json({ error: "Erro a verificar permissão: " + roleErr.message }, 500);
-    if (!isAdmin) return json({ error: "Apenas admin" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const { email, store_id, action, redirect_to } = body as {
+    const { email, store_id, action, redirect_to, password: userPassword } = body as {
       email?: string;
       store_id?: string;
-      action?: "add" | "remove" | "list";
+      action?: "add" | "remove" | "list" | "set_password";
       redirect_to?: string;
+      password?: string;
     };
 
     if (!store_id || !action) return json({ error: "Parâmetros em falta" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Verify authorization: caller must be global admin OR the store owner (created_by)
+    let isAuthorized = !!isAdmin;
+    if (!isAuthorized) {
+      const { data: storeData } = await admin
+        .from("stores")
+        .select("created_by")
+        .eq("id", store_id)
+        .maybeSingle();
+      if (storeData && storeData.created_by === userData.user.id) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return json({ error: "Acesso não autorizado para gerir gestores desta loja" }, 403);
+    }
 
     if (action === "list") {
       const { data: managers, error } = await admin
@@ -86,6 +103,19 @@ Deno.serve(async (req) => {
     );
     if (lookupErr) return json({ error: "Erro a procurar utilizador: " + lookupErr.message }, 500);
 
+    if (action === "set_password") {
+      if (!existingId) return json({ error: "Utilizador não encontrado" }, 404);
+      if (!userPassword || userPassword.length < 6) {
+        return json({ error: "Palavra-passe inválida (mínimo 6 caracteres)" }, 400);
+      }
+      const { error: updateErr } = await admin.auth.admin.updateUserById(existingId, {
+        password: userPassword,
+        email_confirm: true,
+      });
+      if (updateErr) return json({ error: updateErr.message }, 500);
+      return json({ ok: true });
+    }
+
     if (action === "remove") {
       if (!existingId) return json({ error: "Utilizador não encontrado" }, 404);
       const { error } = await admin
@@ -102,12 +132,10 @@ Deno.serve(async (req) => {
     let created = false;
 
     if (!targetUserId) {
-      // Generate a strong random temp password — manager will set their own via the recovery link
-      const tempPassword =
-        crypto.randomUUID().replace(/-/g, "") + "Aa1!";
+      const passwordToSet = userPassword || (crypto.randomUUID().replace(/-/g, "") + "Aa1!");
       const { data: createData, error: createErr } = await admin.auth.admin.createUser({
         email: cleanEmail,
-        password: tempPassword,
+        password: passwordToSet,
         email_confirm: true,
       });
       if (createErr || !createData?.user) {
@@ -115,6 +143,12 @@ Deno.serve(async (req) => {
       }
       targetUserId = createData.user.id;
       created = true;
+    } else if (userPassword) {
+      // Se o utilizador já existia e foi passada uma senha, atualizar e confirmar email
+      await admin.auth.admin.updateUserById(targetUserId, {
+        password: userPassword,
+        email_confirm: true,
+      });
     }
 
     const { error: insertErr } = await admin

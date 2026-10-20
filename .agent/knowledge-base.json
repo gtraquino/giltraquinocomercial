@@ -1,0 +1,52 @@
+{
+  "totalAttempts": 1,
+  "successfulFixes": 1,
+  "failedFixes": 0,
+  "resolutionRate": 100,
+  "history": [
+    {
+      "id": "att-1791563720831-101",
+      "timestamp": "2026-10-09T16:35:20.831Z",
+      "issueNumber": 101,
+      "issueTitle": "Erro ao formatar valores de moedas em pedidos sem casas decimais",
+      "branchName": "test/agent-fix-issue-101",
+      "hypothesis": "Garantir que formatCurrency converta e normalize de forma robusta entradas numéricas e strings (com ou sem decimais), convertendo-as para número válido antes de utilizar o formatador monetário Intl.NumberFormat pt-BR.",
+      "filesModified": [
+        "src/lib/utils.ts"
+      ],
+      "testOutput": "Validation passed",
+      "status": "pr_created",
+      "rootCauseAnalysis": "A função formatCurrency falhava ao processar valores que não eram estritamente do tipo numérico (como strings representando valores inteiros sem casas decimais), gerando conversão incorreta para NaN ao tentar formatar.",
+      "lessonsLearned": [
+        "Utilitários de formatação de valores devem sempre sanitizar a entrada para aceitar múltiplos formatos (strings, números inteiros e decimais) com fallbacks defensivos para evitar NaN em tempo de execução."
+      ],
+      "retryCount": 0,
+      "prUrl": "https://github.com/local/repo/pull/simulated-101",
+      "durationMs": 54934
+    }
+  ],
+  "patterns": {
+    "formatar": {
+      "successfulStrategies": [
+        "Garantir que formatCurrency converta e normalize de forma robusta entradas numéricas e strings (com ou sem decimais), convertendo-as para número válido antes de utilizar o formatador monetário Intl.NumberFormat pt-BR."
+      ],
+      "pitfallsToAvoid": [],
+      "occurrences": 1
+    },
+    "valores": {
+      "successfulStrategies": [
+        "Garantir que formatCurrency converta e normalize de forma robusta entradas numéricas e strings (com ou sem decimais), convertendo-as para número válido antes de utilizar o formatador monetário Intl.NumberFormat pt-BR."
+      ],
+      "pitfallsToAvoid": [],
+      "occurrences": 1
+    },
+    "moedas": {
+      "successfulStrategies": [
+        "Garantir que formatCurrency converta e normalize de forma robusta entradas numéricas e strings (com ou sem decimais), convertendo-as para número válido antes de utilizar o formatador monetário Intl.NumberFormat pt-BR."
+      ],
+      "pitfallsToAvoid": [],
+      "occurrences": 1
+    }
+  },
+  "lastRunAt": "2026-10-09T16:35:20.832Z"
+}

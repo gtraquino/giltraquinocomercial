@@ -26,6 +26,7 @@ import {
 import { exportOrdersPDF, exportOrdersDOCX, exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 import { toast } from "@/hooks/use-toast";
 import ExportInvoiceDialog from "./ExportInvoiceDialog";
+import { getManagedStoreIds } from "@/lib/managerStores";
 
 type SubTab = "date" | "product" | "customer";
 
@@ -68,9 +69,7 @@ export default function OrdersReport() {
         if (error) throw error;
         return data;
       }
-      const { data: mgr, error: e1 } = await supabase.from("store_managers").select("store_id").eq("user_id", user!.id);
-      if (e1) throw e1;
-      const ids = (mgr ?? []).map((m) => m.store_id);
+      const ids = await getManagedStoreIds(user!.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;

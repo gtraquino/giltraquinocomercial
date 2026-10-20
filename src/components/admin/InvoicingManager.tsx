@@ -13,6 +13,7 @@ import { Plus, Trash2, FileText, Settings, CreditCard, Receipt, FileDown, Shoppi
 import { parseProductDescription, formatProductDescription } from "@/utils/stock";
 import { exportInvoicePDF, exportInvoiceDOCX, exportInvoiceTicketPDF, OrderRecord } from "@/lib/reportExport";
 import ExportInvoiceDialog from "./ExportInvoiceDialog";
+import { getManagedStoreIds } from "@/lib/managerStores";
 
 interface InvoiceSettings {
   companyName: string;
@@ -45,7 +46,7 @@ export default function InvoicingManager() {
   // Export dialog state
   const [exportOrder, setExportOrder] = useState<any | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState<"A4" | "Ticket" | undefined>(undefined);
+  const [exportFormat, setExportFormat] = useState<"A4" | "Ticket" | "Ticket80" | "Ticket58" | undefined>(undefined);
 
   // Manual invoice creation state
   const [clientName, setClientName] = useState("");
@@ -57,7 +58,8 @@ export default function InvoicingManager() {
 
   // Settings state
   const [settings, setSettings] = useState<InvoiceSettings>(defaultSettings(""));
-  const [currentPrintFormat, setCurrentPrintFormat] = useState<"A4" | "Ticket">("A4");
+  const [currentPrintFormat, setCurrentPrintFormat] = useState<"A4" | "Ticket" | "Ticket80" | "Ticket58">("A4");
+  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     if (settings && settings.defaultFormat) {
@@ -75,10 +77,7 @@ export default function InvoicingManager() {
         if (error) throw error;
         return data;
       }
-      const { data: mgr, error: mgrErr } = await supabase
-        .from("store_managers").select("store_id").eq("user_id", user!.id);
-      if (mgrErr) throw mgrErr;
-      const ids = (mgr ?? []).map((m) => m.store_id);
+      const ids = await getManagedStoreIds(user!.id);
       if (ids.length === 0) return [];
       const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
@@ -96,23 +95,44 @@ export default function InvoicingManager() {
     }
   }, [stores, selectedStoreId]);
 
-  // Load Invoicing Settings from LocalStorage
+  // Carregar configurações de faturação da cloud (stores.invoice_settings / stores.nif) com fallback no localStorage
   useEffect(() => {
     if (selectedStoreId && selectedStore) {
+      const cloudSettings = (selectedStore as any).invoice_settings;
+      if (cloudSettings && typeof cloudSettings === "object" && Object.keys(cloudSettings).length > 0) {
+        setSettings({
+          ...defaultSettings(selectedStore.name),
+          companyNif: selectedStore.nif || "",
+          address: selectedStore.address || "",
+          phone: selectedStore.whatsapp || "",
+          ...cloudSettings,
+        });
+        return;
+      }
+
       const saved = localStorage.getItem(`invoice_settings_${selectedStoreId}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           setSettings({
             ...defaultSettings(selectedStore.name),
+            companyNif: selectedStore.nif || "",
+            address: selectedStore.address || "",
+            phone: selectedStore.whatsapp || "",
             ...parsed,
           });
+          return;
         } catch (e) {
-          setSettings(defaultSettings(selectedStore.name));
+          // fallback
         }
-      } else {
-        setSettings(defaultSettings(selectedStore.name));
       }
+
+      setSettings({
+        ...defaultSettings(selectedStore.name),
+        companyNif: selectedStore.nif || "",
+        address: selectedStore.address || "",
+        phone: selectedStore.whatsapp || "",
+      });
     }
   }, [selectedStoreId, selectedStore]);
 
@@ -149,11 +169,47 @@ export default function InvoicingManager() {
     enabled: !!selectedStoreId,
   });
 
-  const saveSettings = (e: React.FormEvent) => {
+  const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStoreId) return;
-    localStorage.setItem(`invoice_settings_${selectedStoreId}`, JSON.stringify(settings));
-    toast({ title: "Configurações guardadas", description: "Os dados de faturação foram atualizados." });
+    setSavingSettings(true);
+    try {
+      // 1. Guardar localmente para acesso offline imediato
+      localStorage.setItem(`invoice_settings_${selectedStoreId}`, JSON.stringify(settings));
+
+      // 2. Persistir na base de dados (stores.invoice_settings e stores.nif / address)
+      const { error } = await supabase
+        .from("stores")
+        .update({
+          nif: settings.companyNif || null,
+          address: settings.address || null,
+          invoice_settings: settings as any,
+        })
+        .eq("id", selectedStoreId);
+
+      if (error) {
+        console.warn("Aviso ao guardar configurações na cloud:", error.message);
+        toast({
+          title: "Configurações guardadas localmente",
+          description: "Os dados foram guardados no navegador.",
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["stores-scoped-invoicing"] });
+        queryClient.invalidateQueries({ queryKey: ["stores"] });
+        toast({
+          title: "Configurações sincronizadas na Cloud!",
+          description: "Os dados de faturação foram persistidos na loja e estão disponíveis em todos os dispositivos.",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Erro ao guardar configurações",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   const handleAddItem = () => {
@@ -292,8 +348,10 @@ export default function InvoicingManager() {
           prefix: settings.prefix || "FT",
         };
 
-        if (currentPrintFormat === "Ticket") {
-          exportInvoiceTicketPDF(orderRecord, reportMeta);
+        if (currentPrintFormat === "Ticket58") {
+          exportInvoiceTicketPDF(orderRecord, { ...reportMeta, ticketWidth: 58 });
+        } else if (currentPrintFormat === "Ticket" || currentPrintFormat === "Ticket80") {
+          exportInvoiceTicketPDF(orderRecord, { ...reportMeta, ticketWidth: 80 });
         } else {
           exportInvoicePDF(orderRecord, reportMeta);
         }
@@ -750,9 +808,11 @@ export default function InvoicingManager() {
                       <Receipt className="h-4 w-4" />
                       {createInvoiceMutation.isPending 
                         ? "A processar..." 
-                        : currentPrintFormat === "Ticket" 
-                          ? "Emitir Fatura & Descarregar Ticket" 
-                          : "Emitir Fatura & Descarregar PDF A4"}
+                        : currentPrintFormat === "Ticket58"
+                          ? "Emitir Fatura & Descarregar Talão (58mm)"
+                          : currentPrintFormat === "Ticket" || currentPrintFormat === "Ticket80" 
+                            ? "Emitir Fatura & Descarregar Talão (80mm)" 
+                            : "Emitir Fatura & Descarregar PDF A4"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -843,8 +903,9 @@ export default function InvoicingManager() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="A4">A4 (Padrão)</SelectItem>
-                          <SelectItem value="Ticket">Ticket (80mm)</SelectItem>
+                          <SelectItem value="A4">A4 (Padrão de Escritório)</SelectItem>
+                          <SelectItem value="Ticket80">Talão Térmico (80mm)</SelectItem>
+                          <SelectItem value="Ticket58">Talão Térmico (58mm)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -859,8 +920,8 @@ export default function InvoicingManager() {
                     />
                   </div>
 
-                  <Button type="submit" className="gap-2">
-                    <Settings className="h-4 w-4" /> Guardar Dados
+                  <Button type="submit" className="gap-2" disabled={savingSettings}>
+                    <Settings className="h-4 w-4" /> {savingSettings ? "A sincronizar na Cloud..." : "Guardar Dados"}
                   </Button>
                 </form>
               </CardContent>

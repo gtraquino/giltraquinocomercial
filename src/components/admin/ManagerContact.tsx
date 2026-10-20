@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Phone } from "lucide-react";
+import { getManagedStoreIds } from "@/lib/managerStores";
 
 export default function ManagerContact() {
   const queryClient = useQueryClient();
@@ -25,10 +26,8 @@ export default function ManagerContact() {
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores", user?.id],
     queryFn: async () => {
-      const { data: mgr, error: mgrErr } = await supabase
-        .from("store_managers").select("store_id").eq("user_id", user!.id);
-      if (mgrErr) throw mgrErr;
-      const ids = (mgr ?? []).map((m) => m.store_id);
+      if (!user) return [];
+      const ids = await getManagedStoreIds(user.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;

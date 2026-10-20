@@ -30,12 +30,29 @@ export default function ResetPassword() {
     (async () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
+      const tokenHash = url.searchParams.get("token_hash");
+      const type = url.searchParams.get("type") as any;
       const errorDesc = url.searchParams.get("error_description") || url.hash.match(/error_description=([^&]+)/)?.[1];
 
       if (errorDesc) {
         const decodedError = decodeURIComponent(errorDesc).replace(/\+/g, " ");
         setErrorMsg(decodedError);
-        toast({ title: "Link inválido", description: decodedError, variant: "destructive" });
+        toast({ title: "Link inválido ou expirado", description: decodedError, variant: "destructive" });
+        return;
+      }
+
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type || "recovery",
+        });
+        if (error) {
+          setErrorMsg(error.message);
+          toast({ title: "Erro na validação do link", description: error.message, variant: "destructive" });
+          return;
+        }
+        setReady(true);
+        window.history.replaceState({}, "", "/reset-password");
         return;
       }
 
@@ -56,7 +73,6 @@ export default function ResetPassword() {
       if (session) {
         setReady(true);
       } else {
-        // If there's no code and no access_token / recovery type in hash, it's missing
         const hash = window.location.hash;
         if (!hash.includes("access_token") && !hash.includes("recovery")) {
           setErrorMsg("Sessão não encontrada ou link de recuperação em falta.");
@@ -87,8 +103,26 @@ export default function ResetPassword() {
       return;
     }
 
-    toast({ title: "Palavra-passe atualizada", description: "A redirecionar..." });
-    setTimeout(() => navigate("/admin", { replace: true }), 1000);
+    toast({ title: "Palavra-passe atualizada", description: "A redirecionar para o painel..." });
+
+    // Determinar destino correto (admin vs gestor)
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const isUserAdmin = roleData?.role === "admin" || user.email === "g.traquino66@gmail.com";
+        setTimeout(() => navigate(isUserAdmin ? "/admin" : "/manager", { replace: true }), 800);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+    setTimeout(() => navigate("/manager", { replace: true }), 800);
   };
 
   return (

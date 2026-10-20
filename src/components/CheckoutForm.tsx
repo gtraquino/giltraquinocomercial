@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { normalizeWhatsAppNumber } from '@/utils/whatsapp';
 
 // Need to add RadioGroup and Textarea to shadcn
 interface CheckoutFormProps {
@@ -24,7 +25,8 @@ export function CheckoutForm({ cartItems, onSubmit, currency }: CheckoutFormProp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const cleanPhone = normalizeWhatsAppNumber(formData.phone) || formData.phone.trim();
+    onSubmit({ ...formData, phone: cleanPhone });
   };
 
   const total = cartItems.reduce(

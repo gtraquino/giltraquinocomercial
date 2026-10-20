@@ -2,16 +2,20 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, Package, Link2, LogOut, Menu, X, FileText, Wallet } from "lucide-react";
+import { Store, Package, Link2, LogOut, Menu, X, FileText, Wallet, Boxes, Receipt, Database, Bot } from "lucide-react";
 import StoreManager from "@/components/admin/StoreManager";
 import ProductManager from "@/components/admin/ProductManager";
-import LinkGenerator from "@/components/admin/LinkGenerator";
+import StockManager from "@/components/admin/StockManager";
+import InvoicingManager from "@/components/admin/InvoicingManager";
 import OrdersReport from "@/components/admin/OrdersReport";
 import BillingManager from "@/components/admin/BillingManager";
+import BackupManager from "@/components/admin/BackupManager";
+import LinkGenerator from "@/components/admin/LinkGenerator";
+import AgentDashboard from "@/components/admin/AgentDashboard";
 import DashboardHero from "@/components/DashboardHero";
 import DatabaseSettings from "@/components/DatabaseSettings";
 
-type Tab = "stores" | "products" | "links" | "reports" | "billing";
+type Tab = "stores" | "products" | "stock" | "invoices" | "reports" | "billing" | "backups" | "links" | "agent";
 
 export default function Admin() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -32,9 +36,13 @@ export default function Admin() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" /> },
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
-    { id: "links", label: "Links WhatsApp", icon: <Link2 className="h-4 w-4" /> },
+    { id: "stock", label: "Stock", icon: <Boxes className="h-4 w-4" /> },
+    { id: "invoices", label: "Facturação", icon: <Receipt className="h-4 w-4" /> },
     { id: "reports", label: "Relatórios", icon: <FileText className="h-4 w-4" /> },
     { id: "billing", label: "Mensalidades", icon: <Wallet className="h-4 w-4" /> },
+    { id: "backups", label: "Backups", icon: <Database className="h-4 w-4" /> },
+    { id: "links", label: "Links WhatsApp", icon: <Link2 className="h-4 w-4" /> },
+    { id: "agent", label: "Agente Bugs (AI)", icon: <Bot className="h-4 w-4 text-emerald-500" /> },
   ];
 
   return (
@@ -48,7 +56,7 @@ export default function Admin() {
             <span className="font-bold text-lg hidden sm:block">Painel Admin</span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto py-1">
             {tabs.map((t) => (
               <Button key={t.id} variant={tab === t.id ? "default" : "ghost"} size="sm" onClick={() => setTab(t.id)} className="gap-2">
                 {t.icon}
@@ -62,17 +70,17 @@ export default function Admin() {
               {user.email}
               <span className="ml-2 inline-flex items-center rounded-full bg-accent/20 px-2 py-0.5 text-xs font-medium text-accent-foreground">Admin</span>
             </span>
-            <Button variant="ghost" size="icon" onClick={signOut}>
+            <Button variant="ghost" size="icon" onClick={signOut} title="Terminar Sessão">
               <LogOut className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t px-4 py-2 space-y-1">
+          <div className="lg:hidden border-t px-4 py-2 space-y-1">
             {tabs.map((t) => (
               <Button key={t.id} variant={tab === t.id ? "default" : "ghost"} size="sm" onClick={() => { setTab(t.id); setMobileMenuOpen(false); }} className="w-full justify-start gap-2">
                 {t.icon}
@@ -83,13 +91,17 @@ export default function Admin() {
         )}
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6" style={{ borderColor: "#4d79c3" }}>
+      <main className="mx-auto max-w-7xl p-4 md:p-6">
         <DashboardHero role="admin" />
         {tab === "stores" && <StoreManager />}
         {tab === "products" && <ProductManager />}
-        {tab === "links" && <LinkGenerator />}
+        {tab === "stock" && <StockManager />}
+        {tab === "invoices" && <InvoicingManager />}
         {tab === "reports" && <OrdersReport />}
         {tab === "billing" && <BillingManager />}
+        {tab === "backups" && <BackupManager />}
+        {tab === "links" && <LinkGenerator />}
+        {tab === "agent" && <AgentDashboard />}
       </main>
       <DatabaseSettings />
     </div>

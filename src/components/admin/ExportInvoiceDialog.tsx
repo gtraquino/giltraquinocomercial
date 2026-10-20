@@ -20,9 +20,12 @@ import {
   exportInvoicePDF,
   exportInvoiceTicketPDF,
   exportInvoiceDOCX,
+  printInvoiceDirect,
   OrderRecord,
 } from "@/lib/reportExport";
-import { FileDown, Receipt, FileText, User, Hash, Settings, Info } from "lucide-react";
+import { FileDown, Receipt, FileText, User, Settings, Info, Printer } from "lucide-react";
+
+export type InvoiceFormat = "A4" | "Ticket80" | "Ticket58";
 
 interface ExportInvoiceDialogProps {
   isOpen: boolean;
@@ -37,7 +40,7 @@ interface ExportInvoiceDialogProps {
     whatsapp?: string | null;
     whatsapp_2?: string | null;
   } | null;
-  initialFormat?: "A4" | "Ticket";
+  initialFormat?: "A4" | "Ticket" | "Ticket80" | "Ticket58";
 }
 
 export default function ExportInvoiceDialog({
@@ -49,7 +52,7 @@ export default function ExportInvoiceDialog({
 }: ExportInvoiceDialogProps) {
   const [clientName, setClientName] = useState("");
   const [clientNif, setClientNif] = useState("999999999");
-  const [printFormat, setPrintFormat] = useState<"A4" | "Ticket">("A4");
+  const [printFormat, setPrintFormat] = useState<InvoiceFormat>("A4");
   const [prefix, setPrefix] = useState("FT");
   const [ivaRate, setIvaRate] = useState("14");
 
@@ -60,7 +63,7 @@ export default function ExportInvoiceDialog({
     // Parse name & NIF if they are combined in customer_name, e.g. "John Doe (NIF: 12345)"
     let initialName = order.customer_name || "Consumidor Final";
     let initialNif = "999999999";
-    const nifMatch = initialName.match(/(.*?)\s*\(NIF:\s*([^\)]+)\)/i);
+    const nifMatch = clientName.match(/(.*?)\s*\(NIF:\s*([^\)]+)\)/i);
     if (nifMatch) {
       initialName = nifMatch[1].trim();
       initialNif = nifMatch[2].trim();
@@ -69,7 +72,11 @@ export default function ExportInvoiceDialog({
     setClientNif(initialNif);
 
     if (initialFormat) {
-      setPrintFormat(initialFormat);
+      if (initialFormat === "Ticket") {
+        setPrintFormat("Ticket80");
+      } else {
+        setPrintFormat(initialFormat as InvoiceFormat);
+      }
     } else if (store?.id) {
       const saved = localStorage.getItem(`invoice_settings_${store.id}`);
       if (saved) {
@@ -77,7 +84,9 @@ export default function ExportInvoiceDialog({
           const parsed = JSON.parse(saved);
           if (parsed.prefix) setPrefix(parsed.prefix);
           if (parsed.ivaRate) setIvaRate(parsed.ivaRate);
-          if (parsed.defaultFormat) setPrintFormat(parsed.defaultFormat);
+          if (parsed.defaultFormat) {
+            setPrintFormat(parsed.defaultFormat === "Ticket" ? "Ticket80" : parsed.defaultFormat);
+          }
         } catch (e) {
           console.error("Error loading invoice settings for dialog:", e);
         }
@@ -87,8 +96,7 @@ export default function ExportInvoiceDialog({
 
   if (!order || !store) return null;
 
-  const handleDownloadPDF = () => {
-    // Construct dynamic order with customized customer name and NIF for output
+  const getPreparedData = () => {
     const formattedCustomerName = clientNif && clientNif !== "999999999"
       ? `${clientName} (NIF: ${clientNif})`
       : clientName;
@@ -110,36 +118,30 @@ export default function ExportInvoiceDialog({
       ivaRate,
     };
 
-    if (printFormat === "Ticket") {
-      exportInvoiceTicketPDF(modifiedOrder, reportMeta);
+    return { modifiedOrder, reportMeta };
+  };
+
+  const handleDownloadPDF = () => {
+    const { modifiedOrder, reportMeta } = getPreparedData();
+
+    if (printFormat === "Ticket58") {
+      exportInvoiceTicketPDF(modifiedOrder, { ...reportMeta, ticketWidth: 58 });
+    } else if (printFormat === "Ticket80") {
+      exportInvoiceTicketPDF(modifiedOrder, { ...reportMeta, ticketWidth: 80 });
     } else {
       exportInvoicePDF(modifiedOrder, reportMeta);
     }
     onClose();
   };
 
+  const handlePrintDirect = () => {
+    const { modifiedOrder, reportMeta } = getPreparedData();
+    printInvoiceDirect(modifiedOrder, reportMeta, printFormat);
+    onClose();
+  };
+
   const handleDownloadWord = () => {
-    const formattedCustomerName = clientNif && clientNif !== "999999999"
-      ? `${clientName} (NIF: ${clientNif})`
-      : clientName;
-
-    const modifiedOrder: OrderRecord = {
-      ...order,
-      customer_name: formattedCustomerName,
-    };
-
-    const reportMeta = {
-      storeName: store.name,
-      dateLabel: new Date(order.created_at).toLocaleDateString("pt-PT"),
-      currency: store.currency,
-      nif: store.nif || "999999999",
-      address: store.address || "",
-      whatsapp: store.whatsapp || "",
-      whatsapp2: store.whatsapp_2 || "",
-      prefix,
-      ivaRate,
-    };
-
+    const { modifiedOrder, reportMeta } = getPreparedData();
     exportInvoiceDOCX(modifiedOrder, reportMeta);
     onClose();
   };
@@ -150,7 +152,7 @@ export default function ExportInvoiceDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <Receipt className="h-5 w-5 text-indigo-600" />
-            Opções de Exportação de Fatura
+            Opções de Emissão de Fatura
           </DialogTitle>
         </DialogHeader>
 
@@ -158,11 +160,11 @@ export default function ExportInvoiceDialog({
           {/* Section: Format Selector */}
           <div className="space-y-2">
             <Label htmlFor="print-format" className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
-              Formato de Impressão
+              Formato de Impressão / Emissão
             </Label>
             <Select
               value={printFormat}
-              onValueChange={(val: "A4" | "Ticket") => setPrintFormat(val)}
+              onValueChange={(val: InvoiceFormat) => setPrintFormat(val)}
             >
               <SelectTrigger id="print-format" className="w-full">
                 <SelectValue placeholder="Selecione o formato" />
@@ -171,13 +173,19 @@ export default function ExportInvoiceDialog({
                 <SelectItem value="A4">
                   <div className="flex items-center gap-2">
                     <FileDown className="h-4 w-4 text-blue-500" />
-                    <span>A4 (Padrão de Escritório)</span>
+                    <span>A4 (Padrão de Escritório / Impressão Normal)</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="Ticket">
+                <SelectItem value="Ticket80">
                   <div className="flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-amber-500" />
-                    <span>Ticket Térmico (80mm)</span>
+                    <span>Talão Térmico 80mm (POS / Caixa Padrão)</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="Ticket58">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-emerald-500" />
+                    <span>Talão Térmico 58mm (POS Compacto / Portátil)</span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -276,34 +284,34 @@ export default function ExportInvoiceDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} className="h-9 text-xs">
-            Cancelar
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center">
+          <Button variant="outline" onClick={onClose} className="h-9 text-xs w-full sm:w-auto">
+            Fechar
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
             <Button
               variant="outline"
               onClick={handleDownloadWord}
               className="h-9 text-xs gap-1.5 text-slate-700 hover:text-indigo-600 border-slate-200"
             >
               <FileText className="h-4 w-4 text-blue-500" />
-              Microsoft Word
+              Word (.docx)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handlePrintDirect}
+              className="h-9 text-xs gap-1.5 text-slate-700 hover:text-emerald-700 border-slate-200"
+              title="Abrir caixa de diálogo de impressão direta do navegador"
+            >
+              <Printer className="h-4 w-4 text-emerald-600" />
+              Imprimir
             </Button>
             <Button
               onClick={handleDownloadPDF}
               className="h-9 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              {printFormat === "Ticket" ? (
-                <>
-                  <Receipt className="h-4 w-4" />
-                  Imprimir Ticket
-                </>
-              ) : (
-                <>
-                  <FileDown className="h-4 w-4" />
-                  Exportar PDF A4
-                </>
-              )}
+              <FileDown className="h-4 w-4" />
+              {printFormat === "A4" ? "PDF A4" : printFormat === "Ticket58" ? "PDF Talão 58mm" : "PDF Talão 80mm"}
             </Button>
           </div>
         </DialogFooter>

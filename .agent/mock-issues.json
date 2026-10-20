@@ -1,0 +1,14 @@
+[
+  {
+    "id": 101,
+    "number": 101,
+    "title": "Erro ao formatar valores de moedas em pedidos sem casas decimais",
+    "body": "Ao formatar itens com valores inteiros, a função formatCurrency gera NaN quando o tipo não é numérico estrito.",
+    "labels": [
+      "bug",
+      "priority:medium"
+    ],
+    "html_url": "https://github.com/mock/repo/issues/101",
+    "state": "open"
+  }
+]

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { parseProductDescription, formatProductDescription } from "@/utils/stock";
+import { getManagedStoreIds } from "@/lib/managerStores";
 import { 
   Plus, 
   Minus, 
@@ -43,10 +44,7 @@ export default function StockManager() {
         if (error) throw error;
         return data;
       }
-      const { data: mgr, error: mgrErr } = await supabase
-        .from("store_managers").select("store_id").eq("user_id", user!.id);
-      if (mgrErr) throw mgrErr;
-      const ids = (mgr ?? []).map((m) => m.store_id);
+      const ids = await getManagedStoreIds(user!.id);
       if (ids.length === 0) return [];
       const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;

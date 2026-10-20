@@ -4,15 +4,20 @@ import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
 // Let the developer or users configure their database dynamically via browser tools or a settings panel.
-const DEFAULT_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+const FALLBACK_URL = "https://rgjqnymjwiuhsrqrswzz.supabase.co";
+const FALLBACK_KEY = "sb_publishable_xACnjWP7gFqJSvJjO5tJCA_ZXGJZ8Z-";
 
-const SUPABASE_URL = localStorage.getItem("OVERRIDE_SUPABASE_URL") || DEFAULT_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY") || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+const DEFAULT_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_KEY;
 
-// Guard with generic/dummy values if empty to prevent application-wide crash on startup
-const finalUrl = SUPABASE_URL || "https://placeholder-project-id.supabase.co";
-const finalKey = SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy-placeholder-key";
+const rawUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL");
+const rawKey = localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY");
+
+const validSavedUrl = rawUrl && !rawUrl.includes("placeholder") && rawUrl.startsWith("http") ? rawUrl.trim() : null;
+const validSavedKey = rawKey && !rawKey.includes("dummy") && rawKey.length > 20 ? rawKey.trim() : null;
+
+const finalUrl = validSavedUrl || (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes("placeholder") ? import.meta.env.VITE_SUPABASE_URL : FALLBACK_URL);
+const finalKey = validSavedKey || (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.includes("dummy") ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY : FALLBACK_KEY);
 
 export const supabase = createClient<Database>(finalUrl, finalKey, {
   auth: {

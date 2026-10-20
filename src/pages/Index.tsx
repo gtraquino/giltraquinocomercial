@@ -15,6 +15,8 @@ export default function Index() {
     },
   });
 
+  const activeStores = stores.filter((s) => !s.is_blocked);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
@@ -62,11 +64,11 @@ export default function Index() {
       </section>
 
       {/* Public stores */}
-      {stores.length > 0 && (
+      {activeStores.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 pb-16">
           <h2 className="text-2xl font-bold mb-6 text-center">Lojas Disponíveis</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stores.map((store) => (
+            {activeStores.map((store) => (
               <Card key={store.id} className="group hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
@@ -90,7 +92,20 @@ export default function Index() {
 
       {/* Footer */}
       <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} Encomendas WhatsApp. Todos os direitos reservados.</p>
+        <div className="flex flex-wrap items-center justify-center gap-6 mb-3">
+          <Link to="/privacidade" className="hover:text-foreground transition-colors">
+            Política de Privacidade
+          </Link>
+          <span>•</span>
+          <Link to="/termos" className="hover:text-foreground transition-colors">
+            Termos de Uso
+          </Link>
+          <span>•</span>
+          <Link to="/privacidade#excluir-dados" className="hover:text-foreground transition-colors">
+            Excluir Dados (RGPD/LGPD)
+          </Link>
+        </div>
+        <p>© {new Date().getFullYear()} GilPedidos. Todos os direitos reservados.</p>
       </footer>
     </div>
   );

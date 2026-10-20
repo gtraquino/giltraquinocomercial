@@ -9,13 +9,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { uploadStoreAsset } from "@/lib/imageUpload";
 import { ImageIcon, Upload } from "lucide-react";
 import { parseProductDescription, formatProductDescription } from "@/utils/stock";
+import ImageUploader from "@/components/admin/ImageUploader";
+import { getManagedStoreIds } from "@/lib/managerStores";
 
 interface ProductForm {
   name: string;
@@ -47,6 +49,62 @@ export default function ProductManager() {
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [aiOptimizing, setAiOptimizing] = useState(false);
+
+  const handleOptimizeWithAi = async () => {
+    if (!form.name.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Digite o nome do prato antes de pedir a otimização com IA.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAiOptimizing(true);
+    try {
+      const res = await fetch("/api/ai/optimize-dish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          description: form.description.trim(),
+          category: form.category.trim() || "Geral",
+          price: parseFloat(form.price) || 0,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Falha ao consultar assistente de IA.");
+      }
+
+      if (json.data) {
+        const { enhancedName, enhancedDescription, dietaryTags, upsellSuggestion } = json.data;
+        const tagsFormatted = dietaryTags && dietaryTags.length > 0 ? `\n\nTags: ${dietaryTags.join(", ")}` : "";
+        const upsellFormatted = upsellSuggestion ? `\nSugestão: ${upsellSuggestion}` : "";
+
+        setForm((prev) => ({
+          ...prev,
+          name: enhancedName || prev.name,
+          description: `${enhancedDescription || prev.description}${tagsFormatted}${upsellFormatted}`,
+        }));
+
+        toast({
+          title: "Prato otimizado com IA!",
+          description: "Nome e descrição profissional atualizados via servidor seguro.",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Aviso de IA",
+        description: err.message || "Não foi possível conectar ao servidor de IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setAiOptimizing(false);
+    }
+  };
 
   const { data: stores = [] } = useQuery({
     queryKey: ["stores-scoped", isAdmin, user?.id],
@@ -56,10 +114,7 @@ export default function ProductManager() {
         if (error) throw error;
         return data;
       }
-      const { data: mgr, error: mgrErr } = await supabase
-        .from("store_managers").select("store_id").eq("user_id", user!.id);
-      if (mgrErr) throw mgrErr;
-      const ids = (mgr ?? []).map((m) => m.store_id);
+      const ids = await getManagedStoreIds(user!.id);
       if (ids.length === 0) return [];
       const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
@@ -208,7 +263,20 @@ export default function ProductManager() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="product-desc">Descrição (opcional)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="product-desc">Descrição (opcional)</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleOptimizeWithAi}
+                        disabled={aiOptimizing || !form.name.trim()}
+                        className="h-7 text-xs text-primary gap-1 px-2"
+                      >
+                        <Sparkles className={`h-3 w-3 ${aiOptimizing ? "animate-spin text-amber-500" : ""}`} />
+                        <span>{aiOptimizing ? "Aprimorando..." : "Melhorar com IA"}</span>
+                      </Button>
+                    </div>
                     <Textarea id="product-desc" placeholder="Descrição do produto" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                   </div>
 
@@ -264,19 +332,14 @@ export default function ProductManager() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Imagem do produto</Label>
-                    <div className="flex items-center gap-3">
-                      {form.image_url ? (
-                        <img src={form.image_url} alt="Produto" className="h-16 w-16 rounded-lg object-cover border" />
-                      ) : (
-                        <div className="h-16 w-16 rounded-lg border border-dashed flex items-center justify-center bg-muted">
-                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
-                      <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="flex-1" />
-                    </div>
-                  </div>
+                  <ImageUploader
+                    label="Imagem do produto (escolher do disco rígido)"
+                    description="Selecione uma fotografia no seu computador ou arraste para aqui."
+                    value={form.image_url}
+                    onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+                    folder="products"
+                    storeId={selectedStoreId}
+                  />
 
                   <div className="flex items-center gap-3 border-t pt-3">
                     <Switch checked={form.in_stock} onCheckedChange={(v) => setForm({ ...form, in_stock: v })} />

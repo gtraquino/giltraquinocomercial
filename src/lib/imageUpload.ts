@@ -1,9 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Compresses an image client-side to keep file size small (e.g. ~40-80KB) and fast.
+ * Compresses an image client-side to keep file size small (e.g. ~40-120KB) and fast.
  */
-function compressImage(file: File, maxWidth = 800, maxHeight = 800, quality = 0.75): Promise<Blob> {
+function compressImage(file: File, maxWidth = 900, maxHeight = 900, quality = 0.8): Promise<Blob> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -11,37 +11,50 @@ function compressImage(file: File, maxWidth = 800, maxHeight = 800, quality = 0.
       const img = new Image();
       img.src = event.target?.result as string;
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
+        try {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
 
-        if (width > maxWidth || height > maxHeight) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          } else {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
           }
-        }
 
-        canvas.width = width;
-        canvas.height = height;
+          canvas.width = width;
+          canvas.height = height;
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+
+          const isPng = file.type === "image/png";
+          // If JPEG, fill white background to avoid black background on transparent PNGs
+          if (!isPng) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const targetFormat = isPng ? "image/png" : "image/jpeg";
+          canvas.toBlob(
+            (blob) => {
+              resolve(blob || file);
+            },
+            targetFormat,
+            quality
+          );
+        } catch {
           resolve(file);
-          return;
         }
-
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            resolve(blob || file);
-          },
-          "image/jpeg",
-          quality
-        );
       };
       img.onerror = () => resolve(file);
     };

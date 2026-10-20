@@ -44,30 +44,37 @@ function extractPalette(data: Uint8ClampedArray): [number, number, number][] {
 
 export async function extractColorsFromImage(url: string): Promise<{ primary: string; accent: string } | null> {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const size = 100;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return resolve(null);
-        ctx.drawImage(img, 0, 0, size, size);
-        const { data } = ctx.getImageData(0, 0, size, size);
-        const palette = extractPalette(data);
-        if (palette.length === 0) return resolve(null);
-        const [p, a] = palette;
-        resolve({
-          primary: rgbToHsl(p[0], p[1], p[2]),
-          accent: a ? rgbToHsl(a[0], a[1], a[2]) : rgbToHsl(p[0], p[1], p[2]),
-        });
-      } catch {
-        resolve(null);
+    try {
+      const img = new Image();
+      // Only set crossOrigin for remote HTTP(S) URLs to avoid security errors on data: URLs
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        img.crossOrigin = "anonymous";
       }
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const size = 100;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0, size, size);
+          const { data } = ctx.getImageData(0, 0, size, size);
+          const palette = extractPalette(data);
+          if (palette.length === 0) return resolve(null);
+          const [p, a] = palette;
+          resolve({
+            primary: rgbToHsl(p[0], p[1], p[2]),
+            accent: a ? rgbToHsl(a[0], a[1], a[2]) : rgbToHsl(p[0], p[1], p[2]),
+          });
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch {
+      resolve(null);
+    }
   });
 }
