@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
-  const [mode, setMode] = useState<"login" | "forgot_password">("login");
+  const [mode, setMode] = useState<"login" | "forgot_password" | "update_password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
@@ -19,12 +21,33 @@ export default function Login() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Redireciona automaticamente utilizadores já com sessão válida
+  // Detetar se a página foi aberta através de um link de recuperação de palavra-passe
   useEffect(() => {
-    if (!authLoading && user) {
+    if (
+      window.location.hash.includes("type=recovery") || 
+      window.location.search.includes("type=recovery") ||
+      window.location.href.includes("type=recovery")
+    ) {
+      setMode("update_password");
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("update_password");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Redireciona utilizadores com sessão válida, exceto se estiverem em modo de atualização de palavra-passe
+  useEffect(() => {
+    if (!authLoading && user && mode !== "update_password") {
       navigate(isAdmin ? "/admin" : "/manager", { replace: true });
     }
-  }, [authLoading, navigate, user, isAdmin]);
+  }, [authLoading, navigate, user, isAdmin, mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +116,6 @@ export default function Login() {
         console.warn("Erro ao enviar email de recuperação:", error.message);
       }
 
-      // Por segurança contra enumeração de utilizadores, mostra sempre confirmação
       setResetSent(true);
       toast({
         title: "Instruções enviadas",
@@ -110,6 +132,59 @@ export default function Login() {
     }
   };
 
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({
+        title: "Palavra-passe muito curta",
+        description: "A palavra-passe deve ter pelo menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: "As senhas não coincidem",
+        description: "Por favor confirme que ambas as senhas são iguais.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro ao atualizar senha",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Palavra-passe atualizada com sucesso!",
+        description: "Acedendo à plataforma...",
+      });
+
+      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
       <Card className="w-full max-w-md shadow-xl border-border/60 bg-card">
@@ -118,17 +193,19 @@ export default function Login() {
             <Store className="h-7 w-7" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            {mode === "login" ? "Entrar na Plataforma" : "Recuperar Palavra-passe"}
+            {mode === "login" && "Entrar na Plataforma"}
+            {mode === "forgot_password" && "Recuperar Palavra-passe"}
+            {mode === "update_password" && "Definir Nova Palavra-passe"}
           </CardTitle>
           <CardDescription className="text-xs">
-            {mode === "login"
-              ? "Aceda com as suas credenciais de gestor ou administrador"
-              : "Introduza o seu email para receber um link seguro de redefinição"}
+            {mode === "login" && "Aceda com as suas credenciais de gestor ou administrador"}
+            {mode === "forgot_password" && "Introduza o seu email para receber um link seguro de redefinição"}
+            {mode === "update_password" && "Introduza a sua nova palavra-passe segura para concluir a redefinição"}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {mode === "login" ? (
+          {mode === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">Email da Conta</label>
@@ -179,7 +256,9 @@ export default function Login() {
                 </p>
               </div>
             </form>
-          ) : (
+          )}
+
+          {mode === "forgot_password" && (
             <div className="space-y-4">
               {resetSent ? (
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center space-y-3">
@@ -235,6 +314,48 @@ export default function Login() {
                 </form>
               )}
             </div>
+          )}
+
+          {mode === "update_password" && (
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-xs text-foreground flex items-start gap-2">
+                <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span>
+                  <strong>Link de Recuperação Validado:</strong> Escolha a sua nova palavra-passe abaixo para atualizar a sua conta.
+                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Nova Palavra-passe</label>
+                <Input
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Confirmar Nova Palavra-passe</label>
+                <Input
+                  type="password"
+                  placeholder="Repita a palavra-passe"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <Button type="submit" className="w-full font-semibold gap-1.5" disabled={loading}>
+                <KeyRound className="h-4 w-4" />
+                {loading ? "A atualizar palavra-passe..." : "Guardar Senha e Entrar"}
+              </Button>
+            </form>
           )}
         </CardContent>
       </Card>
