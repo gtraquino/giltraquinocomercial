@@ -10,10 +10,228 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          nif: string | null
+          phone: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          nif?: string | null
+          phone?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          nif?: string | null
+          phone?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_items: {
+        Row: {
+          description: string
+          id: string
+          invoice_id: string
+          iva_amount: number
+          iva_rate: number
+          line_subtotal: number
+          line_total: number
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          description: string
+          id?: string
+          invoice_id: string
+          iva_amount?: number
+          iva_rate?: number
+          line_subtotal?: number
+          line_total?: number
+          quantity: number
+          unit_price: number
+        }
+        Update: {
+          description?: string
+          id?: string
+          invoice_id?: string
+          iva_amount?: number
+          iva_rate?: number
+          line_subtotal?: number
+          line_total?: number
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_sequences: {
+        Row: {
+          next_number: number
+          series_key: string
+          store_id: string
+        }
+        Insert: {
+          next_number?: number
+          series_key: string
+          store_id: string
+        }
+        Update: {
+          next_number?: number
+          series_key?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          corrected_invoice_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_address: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_nif: string | null
+          doc_type: string
+          id: string
+          issue_date: string
+          iva_amount: number
+          iva_rate: number
+          notes: string | null
+          number: number
+          reason: string | null
+          series: string
+          source_order_id: string | null
+          status: string
+          store_id: string
+          subtotal: number
+          total: number
+        }
+        Insert: {
+          corrected_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_address?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_nif?: string | null
+          doc_type: string
+          id?: string
+          issue_date?: string
+          iva_amount?: number
+          iva_rate?: number
+          notes?: string | null
+          number: number
+          reason?: string | null
+          series: string
+          source_order_id?: string | null
+          status?: string
+          store_id: string
+          subtotal?: number
+          total?: number
+        }
+        Update: {
+          corrected_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_address?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_nif?: string | null
+          doc_type?: string
+          id?: string
+          issue_date?: string
+          iva_amount?: number
+          iva_rate?: number
+          notes?: string | null
+          number?: number
+          reason?: string | null
+          series?: string
+          source_order_id?: string | null
+          status?: string
+          store_id?: string
+          subtotal?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_corrected_invoice_id_fkey"
+            columns: ["corrected_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_source_order_id_fkey"
+            columns: ["source_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
@@ -185,7 +403,6 @@ export type Database = {
           currency: string
           hero_title: string | null
           id: string
-          invoice_settings?: Json | null
           is_blocked: boolean
           logo_url: string | null
           name: string
@@ -209,7 +426,6 @@ export type Database = {
           currency: string
           hero_title?: string | null
           id?: string
-          invoice_settings?: Json | null
           is_blocked?: boolean
           logo_url?: string | null
           name: string
@@ -233,7 +449,6 @@ export type Database = {
           currency?: string
           hero_title?: string | null
           id?: string
-          invoice_settings?: Json | null
           is_blocked?: boolean
           logo_url?: string | null
           name?: string
@@ -246,7 +461,6 @@ export type Database = {
           type?: string
           updated_at?: string
           whatsapp?: string
-          whatsapp_2?: string | null
           whatsapp_2?: string | null
         }
         Relationships: []
@@ -274,28 +488,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_or_assign_manager: {
+      create_invoice: {
         Args: {
-          _store_id: string
-          _email: string
-          _password?: string | null
-        }
-        Returns: Json
-      }
-      set_or_create_user_password: {
-        Args: {
-          p_email: string
-          p_password: string
-        }
-        Returns: Json
-      }
-      create_public_order: {
-        Args: {
-          _store_id: string
-          _customer_name: string
-          _customer_phone: string
-          _items: Json
-          _currency?: string
+          p_corrected_invoice_id?: string
+          p_customer_address?: string
+          p_customer_id?: string
+          p_customer_name: string
+          p_customer_nif?: string
+          p_doc_type: string
+          p_issue_date?: string
+          p_items?: Json
+          p_iva_rate?: number
+          p_notes?: string
+          p_reason?: string
+          p_source_order_id?: string
+          p_store_id: string
         }
         Returns: Json
       }
@@ -310,16 +517,6 @@ export type Database = {
       is_store_manager: {
         Args: { _store_id: string; _user_id: string }
         Returns: boolean
-      }
-      create_public_order: {
-        Args: {
-          _currency: string
-          _customer_name: string
-          _customer_phone: string
-          _items: Json
-          _store_id: string
-        }
-        Returns: Json
       }
     }
     Enums: {
