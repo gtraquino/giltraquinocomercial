@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -185,7 +185,6 @@ export type Database = {
           currency: string
           hero_title: string | null
           id: string
-          invoice_settings?: Json | null
           is_blocked: boolean
           logo_url: string | null
           name: string
@@ -209,7 +208,6 @@ export type Database = {
           currency: string
           hero_title?: string | null
           id?: string
-          invoice_settings?: Json | null
           is_blocked?: boolean
           logo_url?: string | null
           name: string
@@ -233,7 +231,6 @@ export type Database = {
           currency?: string
           hero_title?: string | null
           id?: string
-          invoice_settings?: Json | null
           is_blocked?: boolean
           logo_url?: string | null
           name?: string
@@ -246,7 +243,6 @@ export type Database = {
           type?: string
           updated_at?: string
           whatsapp?: string
-          whatsapp_2?: string | null
           whatsapp_2?: string | null
         }
         Relationships: []
@@ -274,31 +270,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_or_assign_manager: {
-        Args: {
-          _store_id: string
-          _email: string
-          _password?: string | null
-        }
-        Returns: Json
-      }
-      set_or_create_user_password: {
-        Args: {
-          p_email: string
-          p_password: string
-        }
-        Returns: Json
-      }
-      create_public_order: {
-        Args: {
-          _store_id: string
-          _customer_name: string
-          _customer_phone: string
-          _items: Json
-          _currency?: string
-        }
-        Returns: Json
-      }
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
@@ -310,16 +281,6 @@ export type Database = {
       is_store_manager: {
         Args: { _store_id: string; _user_id: string }
         Returns: boolean
-      }
-      create_public_order: {
-        Args: {
-          _currency: string
-          _customer_name: string
-          _customer_phone: string
-          _items: Json
-          _store_id: string
-        }
-        Returns: Json
       }
     }
     Enums: {
