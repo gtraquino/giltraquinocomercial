@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getManagedStoreIds } from "@/lib/managerStores";
+import type { InvoiceRow, InvoiceItemRow, CustomerRow, FiscalDocType } from "./fiscalRules";
 
 export * from "./fiscalRules";
 
