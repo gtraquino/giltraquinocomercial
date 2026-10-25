@@ -177,13 +177,13 @@ export default function InvoicingManager() {
       // 1. Guardar localmente para acesso offline imediato
       localStorage.setItem(`invoice_settings_${selectedStoreId}`, JSON.stringify(settings));
 
-      // 2. Persistir na base de dados (stores.invoice_settings e stores.nif / address)
+      // 2. Persistir na base de dados (stores.nif / address). As configurações
+      // de faturação ficam no navegador (localStorage) por loja.
       const { error } = await supabase
         .from("stores")
         .update({
           nif: settings.companyNif || null,
           address: settings.address || null,
-          invoice_settings: settings as any,
         })
         .eq("id", selectedStoreId);
 

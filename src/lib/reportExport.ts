@@ -979,7 +979,7 @@ export function printInvoiceDirect(
     doc = generateInvoiceA4Doc(order, meta);
   }
 
-  const blobUrl = doc.output("bloburl");
+  const blobUrl = String(doc.output("bloburl")) as string;
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
