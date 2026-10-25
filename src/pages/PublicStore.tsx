@@ -48,36 +48,14 @@ export default function PublicStore() {
   const { data: store, isLoading: storeLoading } = useQuery({
     queryKey: ["public-store", storeId],
     queryFn: async () => {
-      if (isUUID) {
-        const { data, error } = await supabase
-          .from("stores")
-          .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
-          .eq("id", storeId!)
-          .maybeSingle();
-        if (error) throw error;
-        if (data) return data;
-      }
-
-      // Se não for UUID ou se não encontrou por ID, tentar por slug caso a coluna exista
-      try {
-        const { data: slugData, error: slugErr } = await supabase
-          .from("stores")
-          .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
-          .eq("slug" as any, storeId!)
-          .maybeSingle();
-        if (!slugErr && slugData) return slugData;
-      } catch {
-        // coluna slug pode não existir no esquema
-      }
-
-      const { data: fallbackData, error: fallbackErr } = await supabase
+      if (!isUUID) return null;
+      const { data, error } = await supabase
         .from("stores")
         .select("id, name, type, currency, whatsapp, whatsapp_2, logo_url, primary_color, accent_color, address, hero_title, opening_time, closing_time, is_blocked, created_at, updated_at")
         .eq("id", storeId!)
         .maybeSingle();
-
-      if (fallbackErr) throw fallbackErr;
-      return fallbackData;
+      if (error) throw error;
+      return data;
     },
     enabled: !!storeId,
   });
