@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Store, Upload, Sparkles, HardDrive, Camera } from "lucide-react";
+import { Plus, Pencil, Trash2, Store, Upload, Sparkles, HardDrive, Camera, CheckCircle2, AlertTriangle, ExternalLink, KeyRound } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { uploadStoreAsset } from "@/lib/imageUpload";
 import { extractColorsFromImage } from "@/lib/colorExtract";
+import { isStoreBlocked } from "@/lib/billing";
 import ManagersDialog from "@/components/admin/ManagersDialog";
 import ImageUploader from "@/components/admin/ImageUploader";
 
@@ -222,11 +224,16 @@ export default function StoreManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Lojas</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Gestão de Lojas</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Crie lojas e carregue no botão <strong className="text-foreground">"Link do Gestor"</strong> para gerar o link de acesso aos gestores com mensalidade em dia.
+          </p>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="gap-2">
+            <Button onClick={openNew} className="gap-2 shrink-0">
               <Plus className="h-4 w-4" /> Nova Loja
             </Button>
           </DialogTrigger>
@@ -377,9 +384,25 @@ export default function StoreManager() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>Moeda: <strong className="text-foreground">{store.currency}</strong></span>
-                  <span>WhatsApp: <strong className="text-foreground">{store.whatsapp}</strong></span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span>Moeda: <strong className="text-foreground">{store.currency}</strong></span>
+                    <span>WhatsApp: <strong className="text-foreground">{store.whatsapp}</strong></span>
+                  </div>
+
+                  {isStoreBlocked(store) ? (
+                    <Badge variant="destructive" className="gap-1 text-[11px] font-semibold">
+                      <AlertTriangle className="h-3 w-3" /> Mensalidade em atraso
+                    </Badge>
+                  ) : store.paid_until ? (
+                    <Badge variant="secondary" className="gap-1 text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle2 className="h-3 w-3" /> Em dia ({store.paid_until})
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="gap-1 text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle2 className="h-3 w-3" /> Mensalidade em dia
+                    </Badge>
+                  )}
                 </div>
 
                 {!store.logo_url ? (
@@ -434,18 +457,32 @@ export default function StoreManager() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(store)}>
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                  <ManagersDialog storeId={store.id} storeName={store.name} store={store} />
+                  
+                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEdit(store)}>
                     <Pencil className="h-3 w-3" /> Editar
                   </Button>
-                  <ManagersDialog storeId={store.id} storeName={store.name} />
+
                   <Button
-                    variant="outline"
+                    asChild
+                    variant="ghost"
                     size="sm"
-                    className="gap-1 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <a href={`/loja/${store.slug || store.id}`} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-3 w-3" /> Catálogo
+                    </a>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 ml-auto"
+                    title="Remover loja"
                     onClick={() => deleteMutation.mutate(store.id)}
                   >
-                    <Trash2 className="h-3 w-3" /> Remover
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </CardContent>
