@@ -248,8 +248,7 @@ export default function PublicStore() {
 
     const cleanCustomerPhone = normalizeWhatsAppNumber(customerPhone) || customerPhone.trim();
 
-    // 1. Tentar RPC atómico no servidor para validar e persistir o pedido com preços autênticos
-    let orderPersisted = false;
+    // 1. Invocação da RPC atómica no servidor para validação de produtos, stock e persistência segura
     try {
       const { data: rpcData, error: rpcErr } = await (supabase.rpc as any)("create_public_order", {
         _store_id: store.id,
@@ -259,56 +258,45 @@ export default function PublicStore() {
         _currency: store.currency,
       });
 
-      if (!rpcErr && rpcData && (rpcData as any).ok) {
-        orderPersisted = true;
-      } else if (rpcErr) {
-        console.warn("RPC create_public_order fallback:", rpcErr.message);
+      if (rpcErr) {
+        console.error("Erro na comunicação com a RPC create_public_order:", rpcErr);
+        toast({
+          title: "Erro ao registar encomenda",
+          description: rpcErr.message || "Não foi possível validar o inventário da loja. Tente novamente.",
+          variant: "destructive",
+        });
+        return { success: false, verifiedTotal, verifiedItems };
       }
-    } catch (rpcEx) {
-      console.warn("RPC invocation fallback:", rpcEx);
-    }
 
-    // 2. Fallback resiliente com total estritamente recalculado
-    if (!orderPersisted) {
-      const { error } = await supabase.from("orders").insert({
-        store_id: store.id,
-        customer_name: nameWithPayment,
-        customer_phone: cleanCustomerPhone,
-        items: verifiedItems as any,
-        total: verifiedTotal,
-        currency: store.currency,
+      if (rpcData && !rpcData.ok) {
+        // Stock insuficiente ou produto esgotado detetado no servidor
+        toast({
+          title: "Não foi possível confirmar a encomenda",
+          description: rpcData.error || "Um ou mais produtos selecionados já não possuem stock suficiente.",
+          variant: "destructive",
+        });
+        // Atualizar catálogo imediatamente para refletir o stock real
+        queryClient.invalidateQueries({ queryKey: ["public-products", store.id] });
+        return { success: false, verifiedTotal, verifiedItems };
+      }
+
+      // Encomenda e dedução de stock concluídas com sucesso no servidor de forma atómica
+      const authenticTotal = rpcData?.total != null ? Number(rpcData.total) : verifiedTotal;
+      const authenticItems = Array.isArray(rpcData?.items) ? rpcData.items : verifiedItems;
+
+      // Atualizar a lista de produtos no catálogo público
+      queryClient.invalidateQueries({ queryKey: ["public-products", store.id] });
+
+      return { success: true, verifiedTotal: authenticTotal, verifiedItems: authenticItems };
+    } catch (rpcEx: any) {
+      console.error("Exceção ao processar pedido:", rpcEx);
+      toast({
+        title: "Erro de comunicação",
+        description: rpcEx?.message || "Ocorreu um erro ao comunicar com a base de dados.",
+        variant: "destructive",
       });
-      if (error) {
-        toast({ title: "Aviso", description: "Pedido enviado mas não foi possível gravar para relatório.", variant: "destructive" });
-      }
+      return { success: false, verifiedTotal, verifiedItems };
     }
-
-    // 3. Atualizar e decrementar o stock de produtos controlados
-    for (const item of verifiedItems) {
-      try {
-        const prod = products.find((p) => p.id === item.id);
-        if (!prod) continue;
-        const { cleanDescription, stockQty } = parseProductDescription(prod.description);
-        if (stockQty !== null) {
-          const newQty = Math.max(0, stockQty - item.qty);
-          const updatedDescription = formatProductDescription(cleanDescription, newQty);
-          await supabase
-            .from("products")
-            .update({
-              description: updatedDescription,
-              in_stock: newQty > 0,
-            })
-            .eq("id", item.id);
-        }
-      } catch (stockErr) {
-        console.warn("Aviso ao decrementar stock:", stockErr);
-      }
-    }
-
-    // Atualizar a lista de produtos no catálogo público
-    queryClient.invalidateQueries({ queryKey: ["public-products", store.id] });
-
-    return { success: true, verifiedTotal, verifiedItems };
   };
 
   const orderNow = async () => {

@@ -146,7 +146,7 @@ export function generateInvoiceA4Doc(
 ): jsPDF {
   const doc = new jsPDF();
   const currencySymbol = meta.currency === "USD" ? "USD" : "Kz";
-  const currencyLabel = meta.currency === "USD" ? "Dólar Americano (USD)" : "Kwanza (AOA)";
+  const currencyLabel = meta.currency === "USD" ? "Dólar Americano (USD)" : "Kwanza (Kz)";
   
   // 1. Extract and format customer name and NIF
   let clientName = order.customer_name || "Consumidor Final";
@@ -507,7 +507,7 @@ export async function exportInvoiceDOCX(order: OrderRecord, meta: ReportMeta) {
           new Paragraph({
             alignment: AlignmentType.RIGHT,
             children: [
-              new TextRun({ text: `Série: A/${year}  |  Moeda: Kwanza (AOA)\n`, size: 18, color: "64748B" }),
+              new TextRun({ text: `Série: A/${year}  |  Moeda: ${meta.currency === "USD" ? "Dólar (USD)" : "Kwanza (Kz)"}\n`, size: 18, color: "64748B" }),
               new TextRun({ text: `Data de Emissão: ${dateStr}`, size: 18, color: "64748B" })
             ]
           }),
@@ -692,7 +692,7 @@ export function generateInvoiceTicketDoc(
   const colRightX = pageWidth - marginX;
 
   const currencySymbol = meta.currency === "USD" ? "USD" : "Kz";
-  const currencyLabel = meta.currency === "USD" ? "Dólar (USD)" : "Kwanza (AOA)";
+  const currencyLabel = meta.currency === "USD" ? "Dólar (USD)" : "Kwanza (Kz)";
 
   // 1. Extract and format customer name and NIF
   let clientName = order.customer_name || "Consumidor Final";

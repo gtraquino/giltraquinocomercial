@@ -274,7 +274,7 @@ export default function InvoicingManager() {
         customer_phone: clientPhone.trim(),
         items: invoiceItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })) as any,
         total: subtotalBase,
-        currency: selectedStore?.currency || "AOA",
+        currency: selectedStore?.currency || "Kz",
       };
 
       const { data, error } = await supabase.from("orders").insert(orderPayload).select().single();
@@ -332,13 +332,13 @@ export default function InvoicingManager() {
           customer_phone: clientPhone.trim(),
           items: invoiceItems,
           total,
-          currency: selectedStore.currency || "AOA",
+          currency: selectedStore.currency || "Kz",
         };
 
         const reportMeta = {
           storeName: settings.companyName || selectedStore.name,
           dateLabel: new Date(newOrder.created_at).toLocaleDateString("pt-PT"),
-          currency: selectedStore.currency || "AOA",
+          currency: selectedStore.currency || "Kz",
           nif: settings.companyNif || null,
           address: settings.address || null,
           whatsapp: settings.phone || selectedStore.whatsapp || null,

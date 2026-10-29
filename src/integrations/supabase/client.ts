@@ -4,8 +4,8 @@ import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
 // Let the developer or users configure their database dynamically via browser tools or a settings panel.
-const FALLBACK_URL = "https://rgjqnymjwiuhsrqrswzz.supabase.co";
-const FALLBACK_KEY = "sb_publishable_xACnjWP7gFqJSvJjO5tJCA_ZXGJZ8Z-";
+const FALLBACK_URL = "https://qdinfgaogmiaoevoatiz.supabase.co";
+const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkaW5mZ2FvZ21pYW9ldm9hdGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNjU3ODAsImV4cCI6MjA5Njk0MTc4MH0.UcAGFABaniHJmjXx0l2iJbHMIoM5jZvsvtxE8EC0Wto";
 
 const DEFAULT_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_KEY;
@@ -13,8 +13,8 @@ const DEFAULT_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHAB
 const rawUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL");
 const rawKey = localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY");
 
-const validSavedUrl = rawUrl && !rawUrl.includes("placeholder") && rawUrl.startsWith("http") ? rawUrl.trim() : null;
-const validSavedKey = rawKey && !rawKey.includes("dummy") && rawKey.length > 20 ? rawKey.trim() : null;
+const validSavedUrl = rawUrl && !rawUrl.includes("placeholder") && !rawUrl.includes("rgjqnymjwiuhsrqrswzz") && rawUrl.startsWith("http") ? rawUrl.trim() : null;
+const validSavedKey = validSavedUrl && rawKey && !rawKey.includes("dummy") && rawKey.length > 20 ? rawKey.trim() : null;
 
 const finalUrl = validSavedUrl || (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes("placeholder") ? import.meta.env.VITE_SUPABASE_URL : FALLBACK_URL);
 const finalKey = validSavedKey || (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.includes("dummy") ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY : FALLBACK_KEY);

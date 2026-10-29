@@ -41,6 +41,8 @@ interface BackupData {
     address: string | null;
     hero_title: string | null;
     nif: string | null;
+    logo_url?: string | null;
+    invoice_settings?: any | null;
   };
   products: Array<{
     name: string;
@@ -115,6 +117,15 @@ export default function BackupManager() {
 
     setBackupLoading(true);
     try {
+      // 0. Fetch complete store record including invoice_settings and logo_url
+      const { data: fullStore, error: storeFetchErr } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", selectedStoreId)
+        .single();
+      if (storeFetchErr) throw storeFetchErr;
+      const targetStore = fullStore || selectedStore;
+
       // 1. Fetch Products
       const { data: productsData, error: prodErr } = await supabase
         .from("products")
@@ -129,24 +140,26 @@ export default function BackupManager() {
         .eq("store_id", selectedStoreId);
       if (ordErr) throw ordErr;
 
-      // Create structured JSON
+      // Create structured JSON (Version 2 with invoicing and identity)
       const backup: BackupData = {
-        version: 1,
+        version: 2,
         backupDate: new Date().toISOString(),
         storeId: selectedStoreId,
         store: {
-          name: selectedStore.name,
-          type: selectedStore.type,
-          whatsapp: selectedStore.whatsapp,
-          whatsapp_2: selectedStore.whatsapp_2,
-          currency: selectedStore.currency,
-          primary_color: selectedStore.primary_color,
-          accent_color: selectedStore.accent_color,
-          opening_time: selectedStore.opening_time,
-          closing_time: selectedStore.closing_time,
-          address: selectedStore.address,
-          hero_title: selectedStore.hero_title,
-          nif: selectedStore.nif,
+          name: targetStore.name,
+          type: targetStore.type,
+          whatsapp: targetStore.whatsapp,
+          whatsapp_2: targetStore.whatsapp_2 || null,
+          currency: targetStore.currency,
+          primary_color: targetStore.primary_color || null,
+          accent_color: targetStore.accent_color || null,
+          opening_time: targetStore.opening_time || null,
+          closing_time: targetStore.closing_time || null,
+          address: targetStore.address || null,
+          hero_title: targetStore.hero_title || null,
+          nif: targetStore.nif || null,
+          logo_url: targetStore.logo_url || null,
+          invoice_settings: (targetStore as any).invoice_settings || null,
         },
         products: productsData || [],
         orders: ordersData || [],
@@ -224,22 +237,32 @@ export default function BackupManager() {
     try {
       // 1. Restore Store Settings
       if (restoreSettings) {
+        const storeUpdatePayload: any = {
+          name: parsedBackup.store.name,
+          type: parsedBackup.store.type,
+          whatsapp: parsedBackup.store.whatsapp,
+          whatsapp_2: parsedBackup.store.whatsapp_2 || null,
+          currency: parsedBackup.store.currency,
+          primary_color: parsedBackup.store.primary_color || null,
+          accent_color: parsedBackup.store.accent_color || null,
+          opening_time: parsedBackup.store.opening_time || null,
+          closing_time: parsedBackup.store.closing_time || null,
+          address: parsedBackup.store.address || null,
+          hero_title: parsedBackup.store.hero_title || null,
+          nif: parsedBackup.store.nif || null,
+        };
+
+        // Preservar retrocompatibilidade: apenas repor se existir no arquivo de backup
+        if (parsedBackup.store.logo_url !== undefined) {
+          storeUpdatePayload.logo_url = parsedBackup.store.logo_url;
+        }
+        if (parsedBackup.store.invoice_settings !== undefined) {
+          storeUpdatePayload.invoice_settings = parsedBackup.store.invoice_settings;
+        }
+
         const { error: storeErr } = await supabase
           .from("stores")
-          .update({
-            name: parsedBackup.store.name,
-            type: parsedBackup.store.type,
-            whatsapp: parsedBackup.store.whatsapp,
-            whatsapp_2: parsedBackup.store.whatsapp_2,
-            currency: parsedBackup.store.currency,
-            primary_color: parsedBackup.store.primary_color,
-            accent_color: parsedBackup.store.accent_color,
-            opening_time: parsedBackup.store.opening_time,
-            closing_time: parsedBackup.store.closing_time,
-            address: parsedBackup.store.address,
-            hero_title: parsedBackup.store.hero_title,
-            nif: parsedBackup.store.nif,
-          })
+          .update(storeUpdatePayload)
           .eq("id", selectedStoreId);
 
         if (storeErr) throw storeErr;
@@ -407,7 +430,8 @@ export default function BackupManager() {
                 O arquivo de backup inclui:
               </p>
               <ul className="list-disc pl-4 space-y-1.5 text-blue-800">
-                <li><strong className="text-blue-950">Definições da Loja:</strong> Nome, cores, horários, contactos, morada e NIF.</li>
+                <li><strong className="text-blue-950">Definições da Loja:</strong> Nome, cores, horários, contactos, morada, NIF e logótipo.</li>
+                <li><strong className="text-blue-950">Facturação & POS:</strong> Configurações fiscais, taxa de IVA e prefixo documental.</li>
                 <li><strong className="text-blue-950">Catálogo de Produtos:</strong> Nome, preços, categorias, stocks e descrições.</li>
                 <li><strong className="text-blue-950">Histórico de Pedidos:</strong> Lista completa de transações e vendas registadas.</li>
               </ul>

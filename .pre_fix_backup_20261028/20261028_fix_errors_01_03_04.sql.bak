@@ -1,0 +1,218 @@
+-- ====================================================================
+-- MIGRAÇÃO CONTROLADA: 20261028_fix_errors_01_03_04.sql
+-- OBJECTIVO: CORRECÇÃO ATÓMICA TWO-PASS DE STOCK EM ENCOMENDAS PÚBLICAS
+-- PREVINE: DEDUÇÕES PARCIAIS, DEADLOCKS E LINHAS REPETIDAS
+-- ====================================================================
+
+CREATE OR REPLACE FUNCTION public.create_public_order(
+  _store_id uuid,
+  _customer_name text,
+  _customer_phone text,
+  _items jsonb,
+  _currency text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+  v_store_orderable boolean;
+  v_clean_name text := trim(COALESCE(_customer_name, ''));
+  v_clean_phone text := trim(COALESCE(_customer_phone, ''));
+  v_total numeric := 0;
+  v_order_id uuid;
+  v_sanitized_items jsonb := '[]'::jsonb;
+  
+  v_item record;
+  v_product record;
+  v_stock_match text[];
+  v_stock_val text;
+  v_stock_num int;
+  v_new_stock int;
+  v_new_desc text;
+  v_new_in_stock boolean;
+BEGIN
+  -- 1. Validação de elegibilidade da loja
+  SELECT public.is_store_orderable(_store_id) INTO v_store_orderable;
+  IF NOT COALESCE(v_store_orderable, false) THEN
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error', 'Loja indisponível para encomendas no momento.',
+      'code', 'STORE_UNAVAILABLE'
+    );
+  END IF;
+
+  -- 2. Validações estritas de dados do cliente
+  IF length(v_clean_name) < 1 OR length(v_clean_name) > 180 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'Nome do cliente inválido.', 'code', 'INVALID_NAME');
+  END IF;
+
+  IF length(v_clean_phone) < 3 OR length(v_clean_phone) > 40 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'Contacto do cliente inválido.', 'code', 'INVALID_PHONE');
+  END IF;
+
+  IF jsonb_typeof(_items) <> 'array' OR jsonb_array_length(_items) < 1 OR jsonb_array_length(_items) > 200 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'Lista de itens inválida.', 'code', 'INVALID_ITEMS');
+  END IF;
+
+  -- Rejeição imediata de itens com quantidades nulas, zero ou negativas
+  IF EXISTS (
+    SELECT 1 
+    FROM jsonb_to_recordset(_items) AS x(id uuid, qty int)
+    WHERE x.id IS NULL OR x.qty IS NULL OR x.qty <= 0
+  ) THEN
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error', 'A quantidade de cada produto deve ser superior a zero.',
+      'code', 'INVALID_QUANTITY'
+    );
+  END IF;
+
+  -- ====================================================================
+  -- FASE 1: VALIDAÇÃO TOTAL & BLOQUEIO DETERMINÍSTICO (READ-LOCK ONLY)
+  -- Nenhuma operação de escrita (UPDATE/INSERT) é executada nesta fase.
+  -- Agrupamos linhas duplicadas e ordenamos por ID para eliminar deadlocks.
+  -- ====================================================================
+  FOR v_item IN 
+    SELECT 
+      x.id,
+      SUM(x.qty)::int AS total_qty
+    FROM jsonb_to_recordset(_items) AS x(id uuid, qty int)
+    GROUP BY x.id
+    ORDER BY x.id ASC
+  LOOP
+    -- Bloqueio pessimista na linha do produto na ordem canónica (FOR UPDATE)
+    SELECT id, name, price, in_stock, description
+    INTO v_product
+    FROM public.products
+    WHERE id = v_item.id AND store_id = _store_id
+    FOR UPDATE;
+
+    -- Verificar se o produto existe e pertence à loja indicada
+    IF v_product.id IS NULL THEN
+      RETURN jsonb_build_object(
+        'ok', false,
+        'error', 'Um ou mais produtos não existem ou não pertencem a esta loja.',
+        'code', 'PRODUCT_NOT_IN_STORE',
+        'product_id', v_item.id
+      );
+    END IF;
+
+    -- Verificar se o produto está ativo
+    IF NOT v_product.in_stock THEN
+      RETURN jsonb_build_object(
+        'ok', false,
+        'error', 'O produto "' || v_product.name || '" encontra-se esgotado.',
+        'code', 'OUT_OF_STOCK',
+        'product_id', v_product.id
+      );
+    END IF;
+
+    -- Validação de stock disponível (apenas para produtos com stock limitado)
+    v_stock_match := regexp_matches(COALESCE(v_product.description, ''), '\[STOCK:(-?\d+|unlimited)\]');
+    IF v_stock_match IS NOT NULL AND array_length(v_stock_match, 1) >= 1 THEN
+      v_stock_val := v_stock_match[1];
+      IF v_stock_val <> 'unlimited' THEN
+        v_stock_num := v_stock_val::int;
+        IF v_stock_num < v_item.total_qty THEN
+          -- Rejeição atómica: nenhuma alteração de inventário foi executada em nenhum produto
+          RETURN jsonb_build_object(
+            'ok', false,
+            'error', 'Stock insuficiente para "' || v_product.name || '". Disponível: ' || GREATEST(0, v_stock_num) || ', Solicitado: ' || v_item.total_qty,
+            'code', 'INSUFFICIENT_STOCK',
+            'product_id', v_product.id,
+            'available', GREATEST(0, v_stock_num),
+            'requested', v_item.total_qty
+          );
+        END IF;
+      END IF;
+    END IF;
+  END LOOP;
+
+  -- ====================================================================
+  -- FASE 2: EXECUÇÃO ATÓMICA (100% DOS ITENS FORAM VALIDADOS COM SUCESSO)
+  -- ====================================================================
+  -- 2.1 Dedução de stock dos produtos controlados
+  FOR v_item IN 
+    SELECT 
+      x.id,
+      SUM(x.qty)::int AS total_qty
+    FROM jsonb_to_recordset(_items) AS x(id uuid, qty int)
+    GROUP BY x.id
+    ORDER BY x.id ASC
+  LOOP
+    SELECT id, name, description
+    INTO v_product
+    FROM public.products
+    WHERE id = v_item.id AND store_id = _store_id;
+
+    v_stock_match := regexp_matches(COALESCE(v_product.description, ''), '\[STOCK:(-?\d+|unlimited)\]');
+    IF v_stock_match IS NOT NULL AND array_length(v_stock_match, 1) >= 1 THEN
+      v_stock_val := v_stock_match[1];
+      IF v_stock_val <> 'unlimited' THEN
+        v_stock_num := v_stock_val::int;
+        v_new_stock := v_stock_num - v_item.total_qty;
+        v_new_desc := regexp_replace(v_product.description, '\[STOCK:(-?\d+|unlimited)\]', '[STOCK:' || v_new_stock || ']');
+        v_new_in_stock := (v_new_stock > 0);
+
+        UPDATE public.products
+        SET description = v_new_desc,
+            in_stock = v_new_in_stock,
+            updated_at = now()
+        WHERE id = v_product.id;
+      END IF;
+    END IF;
+  END LOOP;
+
+  -- 2.2 Preparar lista sanitizada com preços oficiais da base de dados e total seguro
+  FOR v_item IN 
+    SELECT 
+      x.id,
+      SUM(x.qty)::int AS total_qty
+    FROM jsonb_to_recordset(_items) AS x(id uuid, qty int)
+    GROUP BY x.id
+    ORDER BY x.id ASC
+  LOOP
+    SELECT id, name, price
+    INTO v_product
+    FROM public.products
+    WHERE id = v_item.id AND store_id = _store_id;
+
+    v_total := v_total + (v_product.price * v_item.total_qty);
+
+    v_sanitized_items := v_sanitized_items || jsonb_build_object(
+      'id', v_product.id::text,
+      'name', v_product.name,
+      'price', v_product.price,
+      'qty', v_item.total_qty
+    );
+  END LOOP;
+
+  -- 2.3 Gravar a encomenda em public.orders
+  INSERT INTO public.orders (
+    store_id,
+    customer_name,
+    customer_phone,
+    items,
+    total,
+    currency
+  ) VALUES (
+    _store_id,
+    v_clean_name,
+    v_clean_phone,
+    v_sanitized_items,
+    v_total,
+    _currency
+  ) RETURNING id INTO v_order_id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'order_id', v_order_id,
+    'total', v_total,
+    'items', v_sanitized_items
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_public_order(uuid, text, text, jsonb, text) TO anon, authenticated, service_role;

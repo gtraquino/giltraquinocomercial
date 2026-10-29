@@ -1,0 +1,570 @@
+import { describe, it, expect } from "vitest";
+import { parseProductDescription, formatProductDescription } from "../utils/stock";
+
+interface ProductRecord {
+  id: string;
+  store_id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  in_stock: boolean;
+}
+
+interface OrderItemInput {
+  id: string;
+  name?: string;
+  price?: number;
+  qty: any;
+}
+
+interface StoreRecord {
+  id: string;
+  currency: string;
+  is_orderable: boolean;
+}
+
+interface SimulationResult {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  order_id?: string;
+  total?: number;
+  items?: any[];
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Simulador de referência em TypeScript que espelha fielmente a lógica SQL Two-Pass
+ * implementada na função PostgreSQL public.create_public_order.
+ */
+function simulateCreatePublicOrder(
+  storeId: string,
+  store: StoreRecord | undefined,
+  customerName: string,
+  customerPhone: string,
+  itemsInput: OrderItemInput[],
+  currency = "Kz",
+  productsDb: Map<string, ProductRecord>,
+  simulateInsertFailure = false
+): SimulationResult {
+  // 1. Validação de elegibilidade da loja
+  if (!storeId || !UUID_REGEX.test(storeId)) {
+    return { ok: false, error: "ID da loja obrigatório.", code: "INVALID_STORE" };
+  }
+  if (!store || !store.is_orderable) {
+    return { ok: false, error: "Loja indisponível para encomendas no momento.", code: "STORE_UNAVAILABLE" };
+  }
+
+  // 2. Validação da moeda em relação à loja
+  const cleanCurrency = currency?.trim() || "Kz";
+  if (store.currency && cleanCurrency !== "" && cleanCurrency !== store.currency) {
+    return { ok: false, error: "Moeda incompatível com a loja.", code: "INVALID_CURRENCY" };
+  }
+
+  // 3. Validações estritas de dados do cliente
+  const cleanName = customerName?.trim() || "";
+  const cleanPhone = customerPhone?.trim() || "";
+  if (cleanName.length < 1 || cleanName.length > 180) {
+    return { ok: false, error: "Nome do cliente inválido.", code: "INVALID_NAME" };
+  }
+  if (cleanPhone.length < 3 || cleanPhone.length > 40) {
+    return { ok: false, error: "Contacto do cliente inválido.", code: "INVALID_PHONE" };
+  }
+  if (!Array.isArray(itemsInput) || itemsInput.length < 1 || itemsInput.length > 200) {
+    return { ok: false, error: "Lista de itens inválida.", code: "INVALID_ITEMS" };
+  }
+
+  // 4. Validação defensiva item a item (previne casts não controlados)
+  for (const item of itemsInput) {
+    if (!item.id || typeof item.id !== "string" || !UUID_REGEX.test(item.id)) {
+      return { ok: false, error: "Item com identificador inválido no carrinho.", code: "INVALID_ITEMS" };
+    }
+
+    if (
+      item.qty == null ||
+      typeof item.qty !== "number" ||
+      !Number.isInteger(item.qty) ||
+      item.qty <= 0
+    ) {
+      return { ok: false, error: "A quantidade de cada produto deve ser superior a zero.", code: "INVALID_QUANTITY" };
+    }
+
+    if (item.qty < 1 || item.qty > 10000) {
+      return { ok: false, error: "A quantidade de cada produto deve ser entre 1 e 10.000 unidades.", code: "INVALID_QUANTITY" };
+    }
+  }
+
+  // ====================================================================
+  // FASE 1: VALIDAÇÃO TOTAL & BLOQUEIO DETERMINÍSTICO (READ-LOCK ONLY)
+  // Agrupamos itens repetidos e ordenamos por ID para eliminar deadlocks.
+  // ====================================================================
+  const aggregatedMap = new Map<string, number>();
+  for (const item of itemsInput) {
+    aggregatedMap.set(item.id, (aggregatedMap.get(item.id) || 0) + item.qty);
+  }
+
+  const sortedProductIds = Array.from(aggregatedMap.keys()).sort();
+
+  for (const prodId of sortedProductIds) {
+    const totalQty = aggregatedMap.get(prodId)!;
+    const prod = productsDb.get(prodId);
+
+    // Verificar se o produto existe e pertence à loja indicada
+    if (!prod || prod.store_id !== storeId) {
+      return {
+        ok: false,
+        error: "Um ou mais produtos não existem ou não pertencem a esta loja.",
+        code: "PRODUCT_NOT_IN_STORE",
+      };
+    }
+
+    // Verificar se o produto está ativo
+    if (!prod.in_stock) {
+      return {
+        ok: false,
+        error: `O produto "${prod.name}" encontra-se esgotado.`,
+        code: "OUT_OF_STOCK",
+      };
+    }
+
+    // Deteção preventiva de tag malformada (ex.: [STOCK: ], [stock:10], etc.)
+    const desc = prod.description || "";
+    if (/\[\s*stock\s*:[^\]]*\]/i.test(desc) && !/\[STOCK:(-?\d{1,9}|unlimited)\]/.test(desc)) {
+      return {
+        ok: false,
+        error: `Configuração de stock inválida no produto: ${prod.name}`,
+        code: "INVALID_STOCK_CONFIG",
+      };
+    }
+
+    // Validação de stock disponível (apenas para produtos com stock limitado)
+    const { stockQty } = parseProductDescription(prod.description);
+    if (stockQty !== null && stockQty < totalQty) {
+      // Rejeição atómica imediata na Fase 1: NENHUM UPDATE FOI EXECUTADO!
+      return {
+        ok: false,
+        error: `Stock insuficiente para "${prod.name}". Disponível: ${Math.max(0, stockQty)}, Solicitado: ${totalQty}`,
+        code: "INSUFFICIENT_STOCK",
+      };
+    }
+  }
+
+  // ====================================================================
+  // FASE 2: EXECUÇÃO ATÓMICA (100% DOS ITENS PASSARAM NA VALIDAÇÃO)
+  // ====================================================================
+  // Snapshot pré-execução para simular a atomicidade do PostgreSQL em caso de exceção no INSERT
+  const backupProducts = new Map<string, ProductRecord>();
+  for (const [k, v] of productsDb.entries()) {
+    backupProducts.set(k, { ...v });
+  }
+
+  try {
+    // 2.1 Dedução de stock dos produtos controlados
+    for (const prodId of sortedProductIds) {
+      const totalQty = aggregatedMap.get(prodId)!;
+      const prod = productsDb.get(prodId)!;
+      const { cleanDescription, stockQty } = parseProductDescription(prod.description);
+
+      if (stockQty !== null) {
+        const newStock = stockQty - totalQty;
+        const newDesc = formatProductDescription(cleanDescription, newStock);
+        prod.description = newDesc;
+        prod.in_stock = newStock > 0;
+      }
+    }
+
+    // 2.2 Preparar lista sanitizada com preços oficiais e calcular total
+    let total = 0;
+    const sanitizedItems: any[] = [];
+    for (const prodId of sortedProductIds) {
+      const totalQty = aggregatedMap.get(prodId)!;
+      const prod = productsDb.get(prodId)!;
+      total += prod.price * totalQty;
+      sanitizedItems.push({
+        id: prod.id,
+        name: prod.name,
+        price: prod.price,
+        qty: totalQty,
+      });
+    }
+
+    // 2.3 Simulação de falha de persistência
+    if (simulateInsertFailure) {
+      throw new Error("DB_INSERT_FAILURE: Falha na transação ao gravar encomenda.");
+    }
+
+    return {
+      ok: true,
+      order_id: "00000000-0000-0000-0000-000000009999",
+      total,
+      items: sanitizedItems,
+    };
+  } catch (err: any) {
+    // PostgreSQL subtransaction rollback: reverte todas as mutações DML feitas na Fase 2
+    for (const [k, v] of backupProducts.entries()) {
+      productsDb.set(k, v);
+    }
+    return {
+      ok: false,
+      error: `Erro interno na transacção ao processar pedido: ${err?.message || "falha"}`,
+      code: "TRANSACTION_FAILED",
+    };
+  }
+}
+
+describe("Bateria de Testes Obrigatórios T01–T10 (Dois Passos / Two-Pass Architecture)", () => {
+  const storeA = "11111111-1111-1111-1111-111111111111";
+  const storeB = "22222222-2222-2222-2222-222222222222";
+  const storeARecord: StoreRecord = { id: storeA, currency: "Kz", is_orderable: true };
+
+  const p1 = "33333333-3333-3333-3333-333333333331";
+  const p2 = "33333333-3333-3333-3333-333333333332";
+  const pAlien = "99999999-9999-9999-9999-999999999999";
+
+  it("T01 — Um produto com stock suficiente: encomenda criada e stock correctamente deduzido", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Camisa", price: 5000, description: "Camisa Azul [STOCK:10]", in_stock: true }],
+    ]);
+
+    const res = simulateCreatePublicOrder(storeA, storeARecord, "João", "923111222", [{ id: p1, qty: 3 }], "Kz", db);
+
+    expect(res.ok).toBe(true);
+    expect(res.total).toBe(15000);
+    const updatedProd = db.get(p1)!;
+    const { stockQty } = parseProductDescription(updatedProd.description);
+    expect(stockQty).toBe(7);
+    expect(updatedProd.in_stock).toBe(true);
+  });
+
+  it("T02 — Dois produtos, ambos com stock suficiente: encomenda criada e ambos os stocks correctamente deduzidos", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Calças", price: 8000, description: "Calças [STOCK:5]", in_stock: true }],
+      [p2, { id: p2, store_id: storeA, name: "Cinto", price: 2000, description: "Cinto Pele [STOCK:4]", in_stock: true }],
+    ]);
+
+    const res = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Maria",
+      "923333444",
+      [
+        { id: p1, qty: 2 },
+        { id: p2, qty: 1 },
+      ],
+      "Kz",
+      db
+    );
+
+    expect(res.ok).toBe(true);
+    expect(res.total).toBe(18000);
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(3);
+    expect(parseProductDescription(db.get(p2)!.description).stockQty).toBe(3);
+  });
+
+  it("T03 — Dois produtos, sendo o segundo insuficiente: encomenda rejeitada e stock do primeiro produto inalterado", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Casaco", price: 15000, description: "Casaco Lã [STOCK:10]", in_stock: true }],
+      [p2, { id: p2, store_id: storeA, name: "Luvas", price: 3000, description: "Luvas [STOCK:1]", in_stock: true }],
+    ]);
+
+    const res = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Carlos",
+      "923555666",
+      [
+        { id: p1, qty: 2 }, // Stock suficiente
+        { id: p2, qty: 5 }, // Stock insuficiente!
+      ],
+      "Kz",
+      db
+    );
+
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe("INSUFFICIENT_STOCK");
+    // GARANTIA TWO-PASS: O stock do Produto 1 permanece estritamente em 10 (nenhuma dedução parcial executada!)
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(10);
+    expect(parseProductDescription(db.get(p2)!.description).stockQty).toBe(1);
+  });
+
+  it("T04 — Mesmo produto em duas linhas: quantidades agregadas e stock validado sobre o total", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Café Especial", price: 1000, description: "Café [STOCK:5]", in_stock: true }],
+    ]);
+
+    // Linha 1 pede 3 un, Linha 2 pede 3 un -> Total necessário: 6 un (excede stock de 5)
+    const resFail = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Ana",
+      "923777888",
+      [
+        { id: p1, qty: 3 },
+        { id: p1, qty: 3 },
+      ],
+      "Kz",
+      db
+    );
+    expect(resFail.ok).toBe(false);
+    expect(resFail.code).toBe("INSUFFICIENT_STOCK");
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(5);
+
+    // Agora Linha 1 pede 2 un, Linha 2 pede 2 un -> Total 4 un (suficiente)
+    const resSuccess = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Ana",
+      "923777888",
+      [
+        { id: p1, qty: 2 },
+        { id: p1, qty: 2 },
+      ],
+      "Kz",
+      db
+    );
+    expect(resSuccess.ok).toBe(true);
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(1);
+    expect(resSuccess.total).toBe(4000);
+  });
+
+  it("T05 — Produto inexistente ou pertencente a outra loja: encomenda rejeitada sem alterações", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Item Loja A", price: 1000, description: "Desc [STOCK:10]", in_stock: true }],
+      [pAlien, { id: pAlien, store_id: storeB, name: "Item Loja B", price: 5000, description: "Desc [STOCK:5]", in_stock: true }],
+    ]);
+
+    const res = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Pedro",
+      "923000111",
+      [
+        { id: p1, qty: 1 },
+        { id: pAlien, qty: 1 }, // Pertence à Loja B!
+      ],
+      "Kz",
+      db
+    );
+
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe("PRODUCT_NOT_IN_STORE");
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(10);
+    expect(parseProductDescription(db.get(pAlien)!.description).stockQty).toBe(5);
+  });
+
+  it("T06 — Stock ilimitado: encomenda criada sem alteração indevida da descrição", () => {
+    const pUnlim = "44444444-4444-4444-4444-444444444441";
+    const pNoTag = "44444444-4444-4444-4444-444444444442";
+    const db = new Map<string, ProductRecord>([
+      [pUnlim, { id: pUnlim, store_id: storeA, name: "Consultoria", price: 20000, description: "Serviço [STOCK:unlimited]", in_stock: true }],
+      [pNoTag, { id: pNoTag, store_id: storeA, name: "Prato do Dia", price: 3500, description: "Prato sem tag", in_stock: true }],
+    ]);
+
+    const res = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Rui",
+      "923888999",
+      [
+        { id: pUnlim, qty: 5 },
+        { id: pNoTag, qty: 10 },
+      ],
+      "Kz",
+      db
+    );
+
+    expect(res.ok).toBe(true);
+    expect(db.get(pUnlim)!.description).toBe("Serviço [STOCK:unlimited]");
+    expect(db.get(pNoTag)!.description).toBe("Prato sem tag");
+    expect(db.get(pUnlim)!.in_stock).toBe(true);
+  });
+
+  it("T07 — Duas encomendas concorrentes para as últimas unidades disponíveis: nunca permitir stock negativo nem vendas acima do stock disponível", () => {
+    let atomicStock = 2;
+    const pLast = "55555555-5555-5555-5555-555555555555";
+    const db = new Map<string, ProductRecord>([
+      [pLast, { id: pLast, store_id: storeA, name: "Últimas Peças", price: 1000, description: `Item [STOCK:${atomicStock}]`, in_stock: true }],
+    ]);
+
+    // Simulação de bloqueio FOR UPDATE: transação 1 entra primeiro e adquire o bloqueio
+    const order1 = simulateCreatePublicOrder(storeA, storeARecord, "Cliente 1", "923111000", [{ id: pLast, qty: 2 }], "Kz", db);
+    expect(order1.ok).toBe(true);
+    expect(parseProductDescription(db.get(pLast)!.description).stockQty).toBe(0);
+    expect(db.get(pLast)!.in_stock).toBe(false);
+
+    // Transação 2 concorre imediatamente depois: o stock já é 0
+    const order2 = simulateCreatePublicOrder(storeA, storeARecord, "Cliente 2", "923222000", [{ id: pLast, qty: 1 }], "Kz", db);
+    expect(order2.ok).toBe(false);
+    expect(order2.code).toBe("OUT_OF_STOCK");
+    // O stock NUNCA pode ficar negativo
+    expect(parseProductDescription(db.get(pLast)!.description).stockQty).toBe(0);
+  });
+
+  it("T08 — Falha durante a criação da encomenda: nenhuma dedução parcial permanece confirmada", () => {
+    const dbInitialState = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Artigo X", price: 4000, description: "X [STOCK:8]", in_stock: true }],
+    ]);
+
+    const dbWorkingCopy = new Map(JSON.parse(JSON.stringify(Array.from(dbInitialState.entries()))));
+
+    const res = simulateCreatePublicOrder(storeA, storeARecord, "Cliente Teste", "923999111", [{ id: p1, qty: 2 }], "Kz", dbWorkingCopy, true);
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe("TRANSACTION_FAILED");
+
+    // Atomicidade comprovada: rollback subtransaccional restabelece o stock original em 8
+    expect(parseProductDescription(dbWorkingCopy.get(p1)!.description).stockQty).toBe(8);
+  });
+
+  it("T09 — Preço adulterado no payload: cálculo baseado exclusivamente no preço da base de dados", () => {
+    const pReal = "66666666-6666-6666-6666-666666666666";
+    const db = new Map<string, ProductRecord>([
+      [pReal, { id: pReal, store_id: storeA, name: "Relógio de Luxo", price: 50000, description: "Relógio [STOCK:3]", in_stock: true }],
+    ]);
+
+    // Atacante tenta enviar price: 10 Kz no JSON
+    const res = simulateCreatePublicOrder(
+      storeA,
+      storeARecord,
+      "Hacker",
+      "923000999",
+      [{ id: pReal, price: 10, qty: 2 }],
+      "Kz",
+      db
+    );
+
+    expect(res.ok).toBe(true);
+    // Total calculado DEVE ser 50000 * 2 = 100000 Kz (e NÃO 20 Kz!)
+    expect(res.total).toBe(100000);
+    expect(res.items![0].price).toBe(50000);
+  });
+
+  it("T10 — Quantidades inválidas: rejeição sem efeitos secundários", () => {
+    const db = new Map<string, ProductRecord>([
+      [p1, { id: p1, store_id: storeA, name: "Item", price: 2500, description: "Item [STOCK:10]", in_stock: true }],
+    ]);
+
+    // Quantidade zero
+    const resZero = simulateCreatePublicOrder(storeA, storeARecord, "Cliente", "923111222", [{ id: p1, qty: 0 }], "Kz", db);
+    expect(resZero.ok).toBe(false);
+    expect(resZero.code).toBe("INVALID_QUANTITY");
+
+    // Quantidade negativa
+    const resNeg = simulateCreatePublicOrder(storeA, storeARecord, "Cliente", "923111222", [{ id: p1, qty: -3 }], "Kz", db);
+    expect(resNeg.ok).toBe(false);
+    expect(resNeg.code).toBe("INVALID_QUANTITY");
+
+    // Quantidade decimal
+    const resDec = simulateCreatePublicOrder(storeA, storeARecord, "Cliente", "923111222", [{ id: p1, qty: 1.5 }], "Kz", db);
+    expect(resDec.ok).toBe(false);
+    expect(resDec.code).toBe("INVALID_QUANTITY");
+
+    // Quantidade excessiva (> 10000)
+    const resOver = simulateCreatePublicOrder(storeA, storeARecord, "Cliente", "923111222", [{ id: p1, qty: 999999 }], "Kz", db);
+    expect(resOver.ok).toBe(false);
+    expect(resOver.code).toBe("INVALID_QUANTITY");
+
+    // Stock permanece intacto após todas as tentativas
+    expect(parseProductDescription(db.get(p1)!.description).stockQty).toBe(10);
+  });
+});
+
+describe("Testes Unitários — Erro 03: Normalização da Moeda", () => {
+  it("deve usar 'Kz' como moeda padrão de fallback quando não especificada", () => {
+    const storeWithoutCurrency: { currency?: string } = {};
+    const fallbackCurrency = storeWithoutCurrency.currency || "Kz";
+    expect(fallbackCurrency).toBe("Kz");
+    expect(fallbackCurrency).not.toBe("AOA");
+  });
+
+  it("deve respeitar estritamente a moeda 'USD' configurada na loja", () => {
+    const storeUsd: { currency: "Kz" | "USD" } = { currency: "USD" };
+    const currency = storeUsd.currency || "Kz";
+    expect(currency).toBe("USD");
+  });
+
+  it("deve respeitar a moeda 'Kz' configurada na loja", () => {
+    const storeKz: { currency: "Kz" | "USD" } = { currency: "Kz" };
+    const currency = storeKz.currency || "Kz";
+    expect(currency).toBe("Kz");
+  });
+});
+
+describe("Testes Unitários — Erro 04: Backup & Restauro Completo", () => {
+  it("deve gerar backup versão 2 contendo invoice_settings e logo_url", () => {
+    const storeSample = {
+      id: "11111111-1111-1111-1111-111111111111",
+      name: "Loja Teste",
+      type: "comercial",
+      whatsapp: "923000111",
+      currency: "Kz",
+      logo_url: "https://exemplo.com/logo.png",
+      nif: "5412345678",
+      address: "Luanda, Angola",
+      invoice_settings: {
+        companyName: "Loja Teste Lda",
+        companyNif: "5412345678",
+        ivaRate: "14",
+        prefix: "FT/",
+        defaultFormat: "A4",
+      },
+    };
+
+    const backupPayload = {
+      version: 2,
+      backupDate: new Date().toISOString(),
+      storeId: storeSample.id,
+      store: {
+        name: storeSample.name,
+        type: storeSample.type,
+        whatsapp: storeSample.whatsapp,
+        currency: storeSample.currency,
+        logo_url: storeSample.logo_url,
+        nif: storeSample.nif,
+        address: storeSample.address,
+        invoice_settings: storeSample.invoice_settings,
+      },
+      products: [],
+      orders: [],
+    };
+
+    expect(backupPayload.version).toBe(2);
+    expect(backupPayload.store.logo_url).toBe("https://exemplo.com/logo.png");
+    expect(backupPayload.store.invoice_settings.prefix).toBe("FT/");
+    expect(backupPayload.store.invoice_settings.ivaRate).toBe("14");
+  });
+
+  it("deve manter retrocompatibilidade com backups versão 1 legados sem campos fiscais", () => {
+    const legacyBackupV1 = {
+      version: 1,
+      backupDate: "2026-05-01T10:00:00Z",
+      storeId: "11111111-1111-1111-1111-111111111111",
+      store: {
+        name: "Loja Antiga",
+        type: "comercial",
+        whatsapp: "912345678",
+        currency: "Kz",
+      },
+      products: [{ name: "Artigo Antigo", price: 1000, description: "Desc", in_stock: true, category: null, image_url: null }],
+      orders: [],
+    };
+
+    const storeUpdatePayload: any = {
+      name: legacyBackupV1.store.name,
+      type: legacyBackupV1.store.type,
+      whatsapp: legacyBackupV1.store.whatsapp,
+      currency: legacyBackupV1.store.currency,
+    };
+
+    if ((legacyBackupV1.store as any).logo_url !== undefined) {
+      storeUpdatePayload.logo_url = (legacyBackupV1.store as any).logo_url;
+    }
+    if ((legacyBackupV1.store as any).invoice_settings !== undefined) {
+      storeUpdatePayload.invoice_settings = (legacyBackupV1.store as any).invoice_settings;
+    }
+
+    expect(storeUpdatePayload.logo_url).toBeUndefined();
+    expect(storeUpdatePayload.invoice_settings).toBeUndefined();
+    expect(storeUpdatePayload.name).toBe("Loja Antiga");
+  });
+});

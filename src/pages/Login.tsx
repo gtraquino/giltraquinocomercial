@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2, Lock } from "lucide-react";
+import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2, Lock, Database, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
@@ -16,6 +17,12 @@ export default function Login() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showDbDialog, setShowDbDialog] = useState(false);
+
+  // Estados para configuração do Supabase
+  const [customDbUrl, setCustomDbUrl] = useState(() => localStorage.getItem("OVERRIDE_SUPABASE_URL") || "");
+  const [customDbKey, setCustomDbKey] = useState(() => localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY") || "");
+  const currentActiveUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL") || "https://qdinfgaogmiaoevoatiz.supabase.co";
 
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -69,9 +76,10 @@ export default function Login() {
       });
 
       if (error) {
+        console.error("Falha no login Supabase:", error);
         toast({
           title: "Falha na autenticação",
-          description: "Email ou palavra-passe incorretos.",
+          description: error.message || "Email ou palavra-passe incorretos.",
           variant: "destructive",
         });
         return;
@@ -83,10 +91,10 @@ export default function Login() {
           description: "A carregar o seu espaço de trabalho...",
         });
       }
-    } catch {
+    } catch (err) {
       toast({
         title: "Erro de autenticação",
-        description: "Ocorreu um erro ao processar o seu login. Tente novamente.",
+        description: (err as Error)?.message || "Ocorreu um erro ao processar o seu login.",
         variant: "destructive",
       });
     } finally {
@@ -113,13 +121,19 @@ export default function Login() {
       });
 
       if (error) {
-        console.warn("Erro ao enviar email de recuperação:", error.message);
+        console.error("Erro ao enviar email de recuperação:", error);
+        toast({
+          title: "Falha no envio do email",
+          description: error.message || "O serviço de autenticação não conseguiu expedir a mensagem.",
+          variant: "destructive",
+        });
+        return;
       }
 
       setResetSent(true);
       toast({
         title: "Instruções enviadas",
-        description: "Se o email estiver registado, receberá uma mensagem para redefinir a sua senha.",
+        description: `Verifique a caixa de entrada (e pasta de Spam) de ${normalizedEmail}.`,
       });
     } catch {
       toast({
@@ -183,6 +197,52 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveDbSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customDbUrl.trim() || !customDbKey.trim()) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o URL do Projeto e a Anon/Public Key.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      new URL(customDbUrl.trim());
+    } catch {
+      toast({
+        title: "URL Inválido",
+        description: "O URL do Supabase deve começar com https://",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    localStorage.setItem("OVERRIDE_SUPABASE_URL", customDbUrl.trim());
+    localStorage.setItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY", customDbKey.trim());
+    toast({
+      title: "Configuração guardada!",
+      description: "A reconectar à nova base de dados...",
+    });
+
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
+  const handleResetDbSettings = () => {
+    localStorage.removeItem("OVERRIDE_SUPABASE_URL");
+    localStorage.removeItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY");
+    toast({
+      title: "Predefinições restauradas",
+      description: "A restabelecer ligação padrão...",
+    });
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   return (
@@ -249,11 +309,20 @@ export default function Login() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
 
-              <div className="pt-2 text-center">
+              <div className="pt-2 text-center space-y-2">
                 <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                   Acesso seguro protegido por autenticação encriptada
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDbDialog(true)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 mx-auto transition-colors underline decoration-dotted"
+                >
+                  <Database className="h-3 w-3 text-muted-foreground" />
+                  Verificar / Configurar Ligação ao Supabase
+                </button>
               </div>
             </form>
           )}
@@ -359,6 +428,71 @@ export default function Login() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Configuração do Supabase */}
+      <Dialog open={showDbDialog} onOpenChange={setShowDbDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Database className="h-4 w-4 text-primary" />
+              Configurar Ligação ao Supabase
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Verifique se a aplicação está a comunicar com o mesmo projeto do Supabase onde configurou os utilizadores.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveDbSettings} className="space-y-3.5 pt-1">
+            <div className="rounded-lg bg-muted/60 p-2.5 text-[11px] space-y-1 border border-border/50">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="font-semibold text-foreground">URL Atual Ativo:</span>
+              </div>
+              <p className="font-mono text-primary break-all">{currentActiveUrl}</p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground">Project URL (Supabase)</label>
+              <Input
+                placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co"
+                value={customDbUrl}
+                onChange={(e) => setCustomDbUrl(e.target.value)}
+                className="text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Obtido no painel do Supabase ao clicar no botão <strong>Connect</strong> (canto superior) ou em <em>Project Settings &gt; API</em>.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground">API Key (anon / public)</label>
+              <Input
+                type="password"
+                placeholder="sb_publishable_... ou eyJhbGciOi..."
+                value={customDbKey}
+                onChange={(e) => setCustomDbKey(e.target.value)}
+                className="text-xs font-mono"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleResetDbSettings}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Restaurar Padrão
+              </Button>
+
+              <Button type="submit" size="sm" className="text-xs font-semibold">
+                Guardar e Reconectar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

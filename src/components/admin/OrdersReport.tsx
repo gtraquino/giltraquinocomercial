@@ -126,7 +126,7 @@ export default function OrdersReport() {
           const id = item.id || item.name;
           const qty = Number(item.qty) || 1;
           const price = Number(item.price) || 0;
-          const current = map.get(id) || { id, name: item.name, qty: 0, total: 0, storeCurrency: o.currency || "AOA" };
+          const current = map.get(id) || { id, name: item.name, qty: 0, total: 0, storeCurrency: o.currency || selectedStore?.currency || "Kz" };
           current.qty += qty;
           current.total += price * qty;
           map.set(id, current);
@@ -162,7 +162,7 @@ export default function OrdersReport() {
         count: 0,
         total: 0,
         lastOrderDate: o.created_at,
-        storeCurrency: o.currency || "AOA"
+        storeCurrency: o.currency || selectedStore?.currency || "Kz"
       };
       
       current.count += 1;
@@ -331,7 +331,7 @@ export default function OrdersReport() {
                   <DollarSign className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div className="text-xl font-bold text-emerald-700">
-                  {stats.revenue.toFixed(2)} {selectedStore?.currency || "AOA"}
+                  {stats.revenue.toFixed(2)} {selectedStore?.currency || "Kz"}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Total bruto faturado no período</p>
               </CardContent>
@@ -357,7 +357,7 @@ export default function OrdersReport() {
                   <Calculator className="h-4 w-4 text-purple-500" />
                 </div>
                 <div className="text-xl font-bold text-purple-700">
-                  {stats.avgOrderValue.toFixed(2)} {selectedStore?.currency || "AOA"}
+                  {stats.avgOrderValue.toFixed(2)} {selectedStore?.currency || "Kz"}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Valor médio gasto por cliente</p>
               </CardContent>
