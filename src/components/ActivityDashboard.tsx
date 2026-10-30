@@ -39,7 +39,7 @@ export default function ActivityDashboard({ role }: { role: "admin" | "manager" 
         return query.range(from, to);
       });
       const storeIds = stores.map(store => store.id);
-      const start = new Date();
+      const start = new Date(Date.now() + 3600000);
       start.setUTCHours(0, 0, 0, 0);
       start.setUTCDate(start.getUTCDate() - Number(period) + 1);
       // Angola is UTC+1: midnight there is 23:00 UTC on the previous day.
