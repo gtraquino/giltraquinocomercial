@@ -43,10 +43,10 @@ function NavList<T extends string>({
                 onClick={() => onSelect(item.id)}
                 aria-current={isActive ? "page" : undefined}
                 className={
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                  "relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring " +
                   (isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground")
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-md ring-2 ring-sidebar-primary/40 before:absolute before:-left-3 before:top-1/2 before:h-7 before:w-1.5 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground")
                 }
               >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center">
@@ -72,12 +72,12 @@ function SidebarFooter({
   onSignOut: () => void;
 }) {
   return (
-    <div className="shrink-0 border-t p-3">
+    <div className="shrink-0 border-t border-sidebar-border p-3">
       {email && (
-        <div className="mb-2 rounded-xl bg-muted/60 px-3 py-2">
-          <p className="truncate text-xs font-medium text-foreground">{email}</p>
+        <div className="mb-2 rounded-xl bg-sidebar-accent px-3 py-2">
+          <p className="truncate text-xs font-medium text-sidebar-foreground">{email}</p>
           {roleBadge && (
-            <span className="mt-1 inline-flex items-center rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-foreground">
+            <span className="mt-1 inline-flex items-center rounded-full bg-sidebar-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sidebar-primary-foreground">
               {roleBadge}
             </span>
           )}
@@ -87,7 +87,7 @@ function SidebarFooter({
         variant="outline"
         size="sm"
         onClick={onSignOut}
-        className="flex w-full items-center justify-start gap-2"
+        className="flex w-full items-center justify-start gap-2 border-sidebar-border bg-transparent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
         title="Terminar Sessão"
       >
         <LogOut className="h-4 w-4 shrink-0" />
@@ -111,14 +111,14 @@ export default function SidebarNav<T extends string>({
   onCloseMobile,
 }: SidebarNavProps<T>) {
   const brand = (
-    <div className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
         {brandIcon}
       </div>
       <div className="min-w-0">
-        <p className="truncate font-bold leading-tight text-foreground">{title}</p>
+        <p className="truncate font-bold leading-tight text-sidebar-foreground">{title}</p>
         {subtitle && (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          <p className="truncate text-xs text-sidebar-foreground/70">{subtitle}</p>
         )}
       </div>
     </div>
@@ -127,7 +127,7 @@ export default function SidebarNav<T extends string>({
   return (
     <>
       {/* Desktop: fixed left sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r bg-card lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         {brand}
         <NavList items={items} active={active} onSelect={onSelect} />
         <SidebarFooter email={email} roleBadge={roleBadge} onSignOut={onSignOut} />
@@ -141,14 +141,15 @@ export default function SidebarNav<T extends string>({
             onClick={onCloseMobile}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r bg-card shadow-xl">
-            <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b pr-2">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl">
+            <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border pr-2">
               <div className="min-w-0 flex-1">{brand}</div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onCloseMobile}
                 aria-label="Fechar menu"
+                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
               >
                 <X className="h-5 w-5" />
               </Button>
