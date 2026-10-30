@@ -125,10 +125,16 @@ export default function Login({ accessFor = "admin" }: LoginProps) {
       }
 
       if (data?.session) {
+        const allowed = await checkAccess(data.session.user.id);
+        if (!allowed) {
+          await rejectWrongRole();
+          return;
+        }
         toast({
           title: "Sessão iniciada",
           description: "A carregar o seu espaço de trabalho...",
         });
+        navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
       }
     } catch (err) {
       toast({
