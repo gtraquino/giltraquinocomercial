@@ -569,6 +569,21 @@ export default function PublicStore() {
         {cart.length > 0 && (
           <div className="fixed bottom-0 inset-x-0 bg-card border-t shadow-lg p-4 z-40">
             <div className="mx-auto max-w-4xl space-y-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {cart.map((c) => {
+                  const img = (products as StoreProduct[]).find((p) => p.id === c.id)?.image_url;
+                  return (
+                    <div key={c.id} className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1 shrink-0">
+                      {img ? (
+                        <img src={img} alt={c.name} loading="lazy" className="h-10 w-10 rounded-md object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-md bg-muted" />
+                      )}
+                      <span className="text-xs font-medium max-w-[8rem] truncate">{c.qty}× {c.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input
                   placeholder="O seu nome *"

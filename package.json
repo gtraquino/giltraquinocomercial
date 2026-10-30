@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "agent:run": "tsx scripts/agent/index.ts",
-    "agent:stats": "tsx scripts/agent/index.ts --stats"
+    "agent:stats": "tsx scripts/agent/index.ts --stats",
+    "predev": "bunx tsx scripts/generate-sitemap.ts",
+    "prebuild": "bunx tsx scripts/generate-sitemap.ts"
   },
   "dependencies": {
     "@google/genai": "^2.28.0",
