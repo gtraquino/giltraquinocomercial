@@ -470,7 +470,7 @@ export default function StoreManager() {
                     size="sm"
                     className="gap-1 text-xs text-muted-foreground hover:text-foreground"
                   >
-                    <a href={`/loja/${store.slug || store.id}`} target="_blank" rel="noreferrer">
+                    <a href={`/loja/${(store as { slug?: string }).slug || store.id}`} target="_blank" rel="noreferrer">
                       <ExternalLink className="h-3 w-3" /> Catálogo
                     </a>
                   </Button>

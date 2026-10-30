@@ -406,7 +406,7 @@ describe("Bateria de Testes Obrigatórios T01–T10 (Dois Passos / Two-Pass Arch
       [p1, { id: p1, store_id: storeA, name: "Artigo X", price: 4000, description: "X [STOCK:8]", in_stock: true }],
     ]);
 
-    const dbWorkingCopy = new Map(JSON.parse(JSON.stringify(Array.from(dbInitialState.entries()))));
+    const dbWorkingCopy = new Map<string, ProductRecord>(JSON.parse(JSON.stringify(Array.from(dbInitialState.entries()))));
 
     const res = simulateCreatePublicOrder(storeA, storeARecord, "Cliente Teste", "923999111", [{ id: p1, qty: 2 }], "Kz", dbWorkingCopy, true);
     expect(res.ok).toBe(false);
