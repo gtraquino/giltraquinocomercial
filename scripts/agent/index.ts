@@ -95,7 +95,16 @@ async function main() {
       if (finalDiagnosis.modifiedFiles && finalDiagnosis.modifiedFiles.length > 0) {
         modifiedFilePaths = [];
         for (const change of finalDiagnosis.modifiedFiles) {
-          const fullPath = path.resolve(process.cwd(), change.filePath);
+          const repoRoot = path.resolve(process.cwd());
+          const fullPath = path.resolve(repoRoot, String(change.filePath ?? ""));
+          const rel = path.relative(repoRoot, fullPath);
+          if (
+            !rel || rel.startsWith("..") || path.isAbsolute(rel) ||
+            rel.split(path.sep).some((seg) => seg === ".git" || seg === "node_modules" || seg === ".env")
+          ) {
+            console.warn(`⛔ Caminho rejeitado (fora do repositório ou protegido): ${change.filePath}`);
+            continue;
+          }
           const dir = path.dirname(fullPath);
           if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
