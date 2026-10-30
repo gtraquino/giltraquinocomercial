@@ -4,7 +4,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, LogOut, Package, FileText, Link2, Phone, Lock, Receipt, Boxes, Menu, X, Database } from "lucide-react";
+import {
+  Store,
+  Package,
+  FileText,
+  Link2,
+  Phone,
+  Lock,
+  Receipt,
+  Boxes,
+  Menu,
+  Database,
+} from "lucide-react";
 import OrdersReport from "@/components/admin/OrdersReport";
 import ProductManager from "@/components/admin/ProductManager";
 import ManagerContact from "@/components/admin/ManagerContact";
@@ -14,10 +25,18 @@ import StockManager from "@/components/admin/StockManager";
 import BackupManager from "@/components/admin/BackupManager";
 import { isStoreBlocked } from "@/lib/billing";
 import DashboardHero from "@/components/DashboardHero";
+import SidebarNav, { type NavItem } from "@/components/layout/SidebarNav";
 
 import { getManagedStoreIds } from "@/lib/managerStores";
 
-type Tab = "products" | "stock" | "contact" | "link" | "reports" | "invoices" | "backups";
+type Tab =
+  | "products"
+  | "stock"
+  | "contact"
+  | "link"
+  | "reports"
+  | "invoices"
+  | "backups";
 
 export default function Manager() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -30,14 +49,14 @@ export default function Manager() {
       if (!user) return [];
       const ids = await getManagedStoreIds(user.id);
       if (ids.length === 0) return [];
-      
+
       const { data, error } = await supabase
         .from("stores")
         .select("id, name, is_blocked, paid_until, primary_color, accent_color")
         .in("id", ids)
         .order("name");
       if (error) throw error;
-      
+
       return data ?? [];
     },
     enabled: !!user,
@@ -55,7 +74,7 @@ export default function Manager() {
 
   if (!user) return <Navigate to="/gerente-login" replace />;
   if (isAdmin) return <Navigate to="/admin" replace />;
-  
+
   if (managedCount === 0) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
@@ -64,11 +83,11 @@ export default function Manager() {
         </div>
         <h1 className="text-2xl font-bold mb-2">Sem lojas associadas</h1>
         <p className="text-muted-foreground max-w-md mb-6">
-          A sua conta de gestor ainda não tem nenhuma loja associada. 
+          A sua conta de gestor ainda não tem nenhuma loja associada.
           Por favor, contacte o administrador para lhe atribuir uma loja no painel principal.
         </p>
         <Button variant="outline" onClick={signOut} className="gap-2">
-          <LogOut className="h-4 w-4" /> Sair
+          <Store className="h-4 w-4" /> Sair
         </Button>
       </div>
     );
@@ -86,13 +105,13 @@ export default function Manager() {
           Contacte o administrador para regularizar a situação.
         </p>
         <Button variant="outline" onClick={signOut} className="gap-2">
-          <LogOut className="h-4 w-4" /> Sair
+          <Lock className="h-4 w-4" /> Sair
         </Button>
       </div>
     );
   }
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const tabs: NavItem<Tab>[] = [
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
     { id: "stock", label: "Stock", icon: <Boxes className="h-4 w-4" /> },
     { id: "contact", label: "Contactos", icon: <Phone className="h-4 w-4" /> },
@@ -103,78 +122,65 @@ export default function Manager() {
   ];
 
   const activeStore = myStores[0];
-  const themeStyle = activeStore && ((activeStore as any).primary_color || (activeStore as any).accent_color) ? {
-    ["--primary" as any]: (activeStore as any).primary_color || undefined,
-    ["--accent" as any]: (activeStore as any).accent_color || (activeStore as any).primary_color || undefined,
-    ["--ring" as any]: (activeStore as any).primary_color || undefined,
-    backgroundColor: `hsl(${(activeStore as any).primary_color || (activeStore as any).accent_color} / 0.04)`,
-  } as React.CSSProperties : undefined;
+  const themeStyle =
+    activeStore && ((activeStore as any).primary_color || (activeStore as any).accent_color)
+      ? ({
+          ["--primary" as any]: (activeStore as any).primary_color || undefined,
+          ["--accent" as any]:
+            (activeStore as any).accent_color || (activeStore as any).primary_color || undefined,
+          ["--ring" as any]: (activeStore as any).primary_color || undefined,
+          backgroundColor: `hsl(${
+            (activeStore as any).primary_color || (activeStore as any).accent_color
+          } / 0.04)`,
+        } as React.CSSProperties)
+      : undefined;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden" style={themeStyle}>
-      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
-              <Store className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-lg hidden sm:block">Painel do Gestor</span>
-          </div>
+    <div className="min-h-screen bg-background relative" style={themeStyle}>
+      <SidebarNav
+        items={tabs}
+        active={tab}
+        onSelect={(id) => setTab(id)}
+        title="Painel do Gestor"
+        subtitle={activeStore?.name ?? "As suas lojas"}
+        brandIcon={<Store className="h-5 w-5" />}
+        email={user.email}
+        roleBadge="Gestor"
+        onSignOut={signOut}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
 
-          <nav className="hidden md:flex items-center gap-1">
-            {tabs.map((t) => (
-              <Button 
-                key={t.id} 
-                variant={tab === t.id ? "default" : "ghost"} 
-                size="sm" 
-                onClick={() => setTab(t.id)} 
-                className="gap-2 flex items-center"
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </Button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden lg:block truncate max-w-[160px]">{user.email}</span>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/80 px-4 backdrop-blur-md lg:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Store className="h-4 w-4" />
           </div>
+          <span className="truncate font-bold">Painel do Gestor</span>
         </div>
-
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t px-4 py-2 space-y-1 bg-card/95">
-            {tabs.map((t) => (
-              <Button 
-                key={t.id} 
-                variant={tab === t.id ? "default" : "ghost"} 
-                size="sm" 
-                onClick={() => { setTab(t.id); setMobileMenuOpen(false); }} 
-                className="w-full justify-start gap-2 flex items-center"
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </Button>
-            ))}
-          </div>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6" style={{ borderColor: "#4d79c3" }}>
-        <DashboardHero role="manager" />
-        {tab === "products" && <ProductManager />}
-        {tab === "stock" && <StockManager />}
-        {tab === "contact" && <ManagerContact />}
-        {tab === "link" && <ManagerLinks />}
-        {tab === "reports" && <OrdersReport />}
-        {tab === "invoices" && <InvoicingManager />}
-        {tab === "backups" && <BackupManager />}
-      </main>
+      <div className="lg:pl-64">
+        <main className="mx-auto max-w-7xl p-4 md:p-6" style={{ borderColor: "#4d79c3" }}>
+          <DashboardHero role="manager" />
+          {tab === "products" && <ProductManager />}
+          {tab === "stock" && <StockManager />}
+          {tab === "contact" && <ManagerContact />}
+          {tab === "link" && <ManagerLinks />}
+          {tab === "reports" && <OrdersReport />}
+          {tab === "invoices" && <InvoicingManager />}
+          {tab === "backups" && <BackupManager />}
+        </main>
+      </div>
     </div>
   );
 }

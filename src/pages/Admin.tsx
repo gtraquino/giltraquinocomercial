@@ -2,7 +2,18 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Store, Package, Link2, LogOut, Menu, X, FileText, Wallet, Boxes, Receipt, Database, Bot } from "lucide-react";
+import {
+  Store,
+  Package,
+  Link2,
+  Menu,
+  FileText,
+  Wallet,
+  Boxes,
+  Receipt,
+  Database,
+  Bot,
+} from "lucide-react";
 import StoreManager from "@/components/admin/StoreManager";
 import ProductManager from "@/components/admin/ProductManager";
 import StockManager from "@/components/admin/StockManager";
@@ -14,8 +25,18 @@ import LinkGenerator from "@/components/admin/LinkGenerator";
 import AgentDashboard from "@/components/admin/AgentDashboard";
 import DashboardHero from "@/components/DashboardHero";
 import DatabaseSettings from "@/components/DatabaseSettings";
+import SidebarNav, { type NavItem } from "@/components/layout/SidebarNav";
 
-type Tab = "stores" | "products" | "stock" | "invoices" | "reports" | "billing" | "backups" | "links" | "agent";
+type Tab =
+  | "stores"
+  | "products"
+  | "stock"
+  | "invoices"
+  | "reports"
+  | "billing"
+  | "backups"
+  | "links"
+  | "agent";
 
 export default function Admin() {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -33,7 +54,7 @@ export default function Admin() {
   if (!user) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/manager" replace />;
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const tabs: NavItem<Tab>[] = [
     { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" /> },
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
     { id: "stock", label: "Stock", icon: <Boxes className="h-4 w-4" /> },
@@ -47,62 +68,52 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Store className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-lg hidden sm:block">Painel Admin</span>
-          </div>
+      <SidebarNav
+        items={tabs}
+        active={tab}
+        onSelect={(id) => setTab(id)}
+        title="Painel Admin"
+        subtitle="Giltraquino Comercial"
+        brandIcon={<Store className="h-5 w-5" />}
+        email={user.email}
+        roleBadge="Admin"
+        onSignOut={signOut}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
 
-          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto py-1">
-            {tabs.map((t) => (
-              <Button key={t.id} variant={tab === t.id ? "default" : "ghost"} size="sm" onClick={() => setTab(t.id)} className="gap-2">
-                {t.icon}
-                {t.label}
-              </Button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {user.email}
-              <span className="ml-2 inline-flex items-center rounded-full bg-accent/20 px-2 py-0.5 text-xs font-medium text-accent-foreground">Admin</span>
-            </span>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Terminar Sessão">
-              <LogOut className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/80 px-4 backdrop-blur-md lg:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Store className="h-4 w-4" />
           </div>
+          <span className="truncate font-bold">Painel Admin</span>
         </div>
-
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t px-4 py-2 space-y-1">
-            {tabs.map((t) => (
-              <Button key={t.id} variant={tab === t.id ? "default" : "ghost"} size="sm" onClick={() => { setTab(t.id); setMobileMenuOpen(false); }} className="w-full justify-start gap-2">
-                {t.icon}
-                {t.label}
-              </Button>
-            ))}
-          </div>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6">
-        <DashboardHero role="admin" />
-        {tab === "stores" && <StoreManager />}
-        {tab === "products" && <ProductManager />}
-        {tab === "stock" && <StockManager />}
-        {tab === "invoices" && <InvoicingManager />}
-        {tab === "reports" && <OrdersReport />}
-        {tab === "billing" && <BillingManager />}
-        {tab === "backups" && <BackupManager />}
-        {tab === "links" && <LinkGenerator />}
-        {tab === "agent" && <AgentDashboard />}
-      </main>
+      <div className="lg:pl-64">
+        <main className="mx-auto max-w-7xl p-4 md:p-6">
+          <DashboardHero role="admin" />
+          {tab === "stores" && <StoreManager />}
+          {tab === "products" && <ProductManager />}
+          {tab === "stock" && <StockManager />}
+          {tab === "invoices" && <InvoicingManager />}
+          {tab === "reports" && <OrdersReport />}
+          {tab === "billing" && <BillingManager />}
+          {tab === "backups" && <BackupManager />}
+          {tab === "links" && <LinkGenerator />}
+          {tab === "agent" && <AgentDashboard />}
+        </main>
+      </div>
       <DatabaseSettings />
     </div>
   );
