@@ -15,6 +15,13 @@
       "when": 1793372433204,
       "tag": "0001_tighten_public_catalog_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793373242058,
+      "tag": "0002_grant_role_helpers_to_anon",
+      "breakpoints": true
     }
   ]
 }
