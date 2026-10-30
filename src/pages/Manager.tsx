@@ -53,7 +53,7 @@ export default function Manager() {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/gerente-login" replace />;
   if (isAdmin) return <Navigate to="/admin" replace />;
   
   if (managedCount === 0) {
