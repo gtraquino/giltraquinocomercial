@@ -128,6 +128,32 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
+// Autenticação: exige sessão válida (Lovable Cloud) e papel admin ou gestor de loja
+async function requireStaff(req: Request, res: Response, next: NextFunction) {
+  try {
+    const auth = req.headers.authorization || "";
+    if (!auth.startsWith("Bearer ")) return res.status(401).json({ error: "Não autenticado." });
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!url || !key) return res.status(503).json({ error: "Serviço indisponível." });
+    const headers = { apikey: key, Authorization: auth };
+    const u = await fetch(`${url}/auth/v1/user`, { headers });
+    if (!u.ok) return res.status(401).json({ error: "Sessão inválida." });
+    const user = (await u.json()) as { id?: string };
+    if (!user?.id) return res.status(401).json({ error: "Sessão inválida." });
+    const [roles, mgr] = await Promise.all([
+      fetch(`${url}/rest/v1/user_roles?select=role&role=eq.admin&user_id=eq.${encodeURIComponent(user.id)}`, { headers }),
+      fetch(`${url}/rest/v1/store_managers?select=id&limit=1&user_id=eq.${encodeURIComponent(user.id)}`, { headers }),
+    ]);
+    const r = roles.ok ? ((await roles.json()) as unknown[]) : [];
+    const m = mgr.ok ? ((await mgr.json()) as unknown[]) : [];
+    if (r.length === 0 && m.length === 0) return res.status(403).json({ error: "Sem permissão." });
+    next();
+  } catch {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+}
+
 // -------------------------------------------------------------
 // 5. ROTAS DE API DO BACKEND (/api/*)
 // -------------------------------------------------------------
@@ -161,7 +187,7 @@ const optimizeDishSchema = z
   })
   .strict();
 
-app.post("/api/ai/optimize-dish", aiRateLimiter, async (req: Request, res: Response) => {
+app.post("/api/ai/optimize-dish", requireStaff, aiRateLimiter, async (req: Request, res: Response) => {
   // 1. Validação estrita de schema
   const parsed = optimizeDishSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -285,7 +311,7 @@ const suggestMenuSchema = z
   })
   .strict();
 
-app.post("/api/ai/suggest-menu", aiRateLimiter, async (req: Request, res: Response) => {
+app.post("/api/ai/suggest-menu", requireStaff, aiRateLimiter, async (req: Request, res: Response) => {
   const parsed = suggestMenuSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({

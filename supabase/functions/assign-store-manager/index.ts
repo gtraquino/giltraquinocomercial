@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
     if (lookupErr) return json({ error: "Erro a procurar utilizador: " + lookupErr.message }, 500);
 
     if (action === "set_password") {
+      if (!isAdmin) return json({ error: "Apenas o administrador pode definir senhas" }, 403);
       if (!existingId) return json({ error: "Utilizador não encontrado" }, 404);
       if (!userPassword || userPassword.length < 6) {
         return json({ error: "Palavra-passe inválida (mínimo 6 caracteres)" }, 400);
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
       }
       targetUserId = createData.user.id;
       created = true;
-    } else if (userPassword) {
+    } else if (userPassword && isAdmin) {
       // Se o utilizador já existia e foi passada uma senha, atualizar e confirmar email
       await admin.auth.admin.updateUserById(targetUserId, {
         password: userPassword,

@@ -63,9 +63,13 @@ export default function ProductManager() {
 
     setAiOptimizing(true);
     try {
+      const { data: sess } = await supabase.auth.getSession();
       const res = await fetch("/api/ai/optimize-dish", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
+        },
         body: JSON.stringify({
           name: form.name.trim(),
           description: form.description.trim(),
