@@ -1,2 +1,5 @@
 - [x] Fotos de produto geradas por IA (catálogo + checkout)
 - [x] Avaliação SEO / busca com IA, correções e termos realistas
+- [x] Página Boas-vindas com actividade real para administrador e gestor
+- [x] Separar o conteúdo dos restantes menus
+- [ ] Verificar navegação autenticada — pré-visualização local indisponível na porta 8080

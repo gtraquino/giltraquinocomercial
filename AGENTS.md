@@ -1,0 +1,2 @@
+# Project rules
+- The shared welcome dashboard reads scoped activity through existing RLS and manager associations; keep order values, fiscal documents and subscription receipts separate to avoid presenting orders as paid sales.
