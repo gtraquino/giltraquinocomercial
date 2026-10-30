@@ -1,0 +1,2 @@
+- [ ] Fotos de produto geradas por IA (catálogo + checkout)
+- [ ] Avaliação SEO / busca com IA, correções e termos realistas
