@@ -61,7 +61,9 @@ const App = () => (
           <AuthRedirectTracker />
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login accessFor="admin" />} />
+            <Route path="/gerente-login" element={<Login accessFor="manager" />} />
+            <Route path="/manager-login" element={<Login accessFor="manager" />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/manager" element={<Manager />} />

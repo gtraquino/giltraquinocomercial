@@ -9,7 +9,11 @@ import { toast } from "@/hooks/use-toast";
 import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2, Lock, Database, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function Login() {
+interface LoginProps {
+  accessFor?: "admin" | "manager";
+}
+
+export default function Login({ accessFor = "admin" }: LoginProps) {
   const [mode, setMode] = useState<"login" | "forgot_password" | "update_password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +29,7 @@ export default function Login() {
   const currentActiveUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL") || "https://qdinfgaogmiaoevoatiz.supabase.co";
 
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim().toLowerCase();
 
   // Detetar se a página foi aberta através de um link de recuperação de palavra-passe
@@ -49,12 +53,47 @@ export default function Login() {
     };
   }, []);
 
+  // Verifica se o utilizador tem o papel exigido por esta página de acesso
+  const checkAccess = async (userId: string): Promise<boolean> => {
+    if (accessFor === "manager") {
+      const { data } = await supabase
+        .from("store_managers")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+      return (data?.length ?? 0) > 0;
+    }
+    const { data } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    return !!data;
+  };
+
+  const rejectWrongRole = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Acesso não autorizado",
+      description:
+        accessFor === "manager"
+          ? "Esta conta não é gestora de nenhuma loja. Use o link de acesso correto."
+          : "Esta área é exclusiva do administrador. Os gestores devem usar o seu próprio link de acesso.",
+      variant: "destructive",
+    });
+  };
+
   // Redireciona utilizadores com sessão válida, exceto se estiverem em modo de atualização de palavra-passe
   useEffect(() => {
     if (!authLoading && user && mode !== "update_password") {
-      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
+      checkAccess(user.id).then((allowed) => {
+        if (!allowed) {
+          rejectWrongRole();
+          return;
+        }
+        navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
+      });
     }
-  }, [authLoading, navigate, user, isAdmin, mode]);
+  }, [authLoading, navigate, user, mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,10 +125,16 @@ export default function Login() {
       }
 
       if (data?.session) {
+        const allowed = await checkAccess(data.session.user.id);
+        if (!allowed) {
+          await rejectWrongRole();
+          return;
+        }
         toast({
           title: "Sessão iniciada",
           description: "A carregar o seu espaço de trabalho...",
         });
+        navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
       }
     } catch (err) {
       toast({
@@ -187,7 +232,7 @@ export default function Login() {
         description: "Acedendo à plataforma...",
       });
 
-      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
+      navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
     } catch (err) {
       toast({
         title: "Erro",
@@ -253,12 +298,15 @@ export default function Login() {
             <Store className="h-7 w-7" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            {mode === "login" && "Entrar na Plataforma"}
+            {mode === "login" && (accessFor === "manager" ? "Área do Gestor" : "Área do Administrador")}
             {mode === "forgot_password" && "Recuperar Palavra-passe"}
             {mode === "update_password" && "Definir Nova Palavra-passe"}
           </CardTitle>
           <CardDescription className="text-xs">
-            {mode === "login" && "Aceda com as suas credenciais de gestor ou administrador"}
+            {mode === "login" &&
+              (accessFor === "manager"
+                ? "Acesso exclusivo para gestores de lojas e restaurantes"
+                : "Acesso exclusivo para o administrador da plataforma")}
             {mode === "forgot_password" && "Introduza o seu email para receber um link seguro de redefinição"}
             {mode === "update_password" && "Introduza a sua nova palavra-passe segura para concluir a redefinição"}
           </CardDescription>
