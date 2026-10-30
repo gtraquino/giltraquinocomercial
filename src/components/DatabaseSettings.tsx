@@ -94,7 +94,7 @@ export default function DatabaseSettings() {
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-[99]">
+    <div className="fixed bottom-6 right-6 z-[99]">
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button
