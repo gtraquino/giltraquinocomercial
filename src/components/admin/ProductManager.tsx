@@ -147,6 +147,32 @@ export default function ProductManager() {
 
   const selectedStore = stores.find((s) => s.id === selectedStoreId);
 
+  const [genIds, setGenIds] = useState<Set<string>>(new Set());
+  const generatePhoto = async (id: string): Promise<boolean> => {
+    setGenIds((s) => new Set(s).add(id));
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-product-image", { body: { product_id: id } });
+      if (error || data?.error) {
+        let msg = data?.error || error?.message || "Falha ao gerar foto.";
+        try { const b = await (error as any)?.context?.json?.(); if (b?.error) msg = b.error; } catch { /* */ }
+        toast({ title: "Foto IA", description: msg, variant: "destructive" });
+        return false;
+      }
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      return true;
+    } finally {
+      setGenIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+  const generateAll = async () => {
+    let ok = 0;
+    for (const p of products as any[]) {
+      if (!(await generatePhoto(p.id))) break;
+      ok++;
+    }
+    toast({ title: "Fotos IA", description: `${ok} de ${products.length} fotos geradas.` });
+  };
+
   const upsertMutation = useMutation({
     mutationFn: async (data: ProductForm & { id?: string }) => {
       const parsedQty = data.stock_unlimited ? null : parseInt(data.stock_qty || "0", 10);
@@ -379,9 +405,15 @@ export default function ProductManager() {
         </Card>
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
+          <div className="flex justify-end p-2 border-b">
+            <Button size="sm" variant="outline" className="gap-1" disabled={genIds.size > 0} onClick={generateAll}>
+              <Sparkles className="h-4 w-4" /> {genIds.size > 0 ? "A gerar fotos..." : "Gerar fotos IA para todos"}
+            </Button>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Foto</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Preço</TableHead>
                 <TableHead>Categoria</TableHead>
@@ -394,6 +426,13 @@ export default function ProductManager() {
                 const { stockQty } = parseProductDescription(p.description);
                 return (
                   <TableRow key={p.id}>
+                    <TableCell>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} loading="lazy" className={`h-12 w-12 rounded-md object-cover ${genIds.has(p.id) ? "blur-sm" : ""}`} />
+                      ) : (
+                        <div className={`h-12 w-12 rounded-md bg-muted ${genIds.has(p.id) ? "animate-pulse" : ""}`} />
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{Number(p.price).toFixed(2)} {selectedStore?.currency}</TableCell>
                     <TableCell>{p.category || "—"}</TableCell>
@@ -409,6 +448,7 @@ export default function ProductManager() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" title="Gerar foto com IA" disabled={genIds.has(p.id)} onClick={() => generatePhoto(p.id)}><Sparkles className={`h-4 w-4 ${genIds.has(p.id) ? "animate-spin" : ""}`} /></Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
