@@ -140,7 +140,7 @@ export default function Manager() {
       <SidebarNav
         items={tabs}
         active={tab}
-        onSelect={setTab}
+        onSelect={(id) => setTab(id)}
         title="Painel do Gestor"
         subtitle={activeStore?.name ?? "As suas lojas"}
         brandIcon={<Store className="h-5 w-5" />}

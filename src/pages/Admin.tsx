@@ -71,7 +71,7 @@ export default function Admin() {
       <SidebarNav
         items={tabs}
         active={tab}
-        onSelect={setTab}
+        onSelect={(id) => setTab(id)}
         title="Painel Admin"
         subtitle="Giltraquino Comercial"
         brandIcon={<Store className="h-5 w-5" />}
