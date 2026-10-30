@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import type { ValidationResult } from "./types.js";
 
 const PROTECTED_BRANCHES = ["main", "master", "production", "prod", "staging", "release"];
@@ -116,16 +116,17 @@ export class GitManager {
 
     try {
       this.run("git add -A");
-      this.run(
-        `git commit -m "fix(issue-#${issueNumber}): ${message.replace(/"/g, '\\"')}\n\nAutomated fix proposed by Self-Improving Agent"`
-      );
+      const safeIssue = Number.isInteger(issueNumber) ? issueNumber : 0;
+      const commitMsg = `fix(issue-#${safeIssue}): ${String(message).slice(0, 500)}\n\nAutomated fix proposed by Self-Improving Agent`;
+      // Pass arguments directly (no shell) so untrusted text cannot run commands.
+      execFileSync("git", ["commit", "-m", commitMsg], { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
       console.log(`[Git] 💾 Commit realizado com sucesso na branch ${branchName}`);
 
       // Push para a branch de teste remota (se token ou remoto estiver configurado)
       if (process.env.GITHUB_TOKEN) {
         try {
           console.log(`[Git] 🚀 Subindo branch de teste ${branchName} para o GitHub...`);
-          this.run(`git push -u origin ${branchName} --force`);
+          execFileSync("git", ["push", "-u", "origin", branchName, "--force"], { stdio: ["pipe", "pipe", "pipe"] });
           return true;
         } catch (pushErr: any) {
           console.warn(`[Git] Aviso ao subir branch remota: ${pushErr.message}`);
