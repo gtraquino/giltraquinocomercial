@@ -29,7 +29,7 @@ export default function Login({ accessFor = "admin" }: LoginProps) {
   const currentActiveUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL") || "https://qdinfgaogmiaoevoatiz.supabase.co";
 
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const normalizedEmail = email.trim().toLowerCase();
 
   // Detetar se a página foi aberta através de um link de recuperação de palavra-passe
