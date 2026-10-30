@@ -8,6 +8,13 @@
       "when": 1792695792290,
       "tag": "0000_agt_fiscal_invoicing",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793372433204,
+      "tag": "0001_tighten_public_catalog_policies",
+      "breakpoints": true
     }
   ]
 }

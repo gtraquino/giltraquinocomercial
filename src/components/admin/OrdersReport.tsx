@@ -250,7 +250,11 @@ export default function OrdersReport() {
 
     const content = [
       headers.join(","),
-      ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      ...rows.map((row) => row.map((val) => {
+        let v = String(val ?? "");
+        if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+        return `"${v.replace(/"/g, '""')}"`;
+      }).join(","))
     ].join("\n");
 
     const blob = new Blob(["\ufeff" + content], { type: "text/csv;charset=utf-8;" });
