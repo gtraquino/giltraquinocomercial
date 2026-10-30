@@ -232,7 +232,7 @@ export default function Login({ accessFor = "admin" }: LoginProps) {
         description: "Acedendo à plataforma...",
       });
 
-      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
+      navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
     } catch (err) {
       toast({
         title: "Erro",
@@ -298,12 +298,15 @@ export default function Login({ accessFor = "admin" }: LoginProps) {
             <Store className="h-7 w-7" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            {mode === "login" && "Entrar na Plataforma"}
+            {mode === "login" && (accessFor === "manager" ? "Área do Gestor" : "Área do Administrador")}
             {mode === "forgot_password" && "Recuperar Palavra-passe"}
             {mode === "update_password" && "Definir Nova Palavra-passe"}
           </CardTitle>
           <CardDescription className="text-xs">
-            {mode === "login" && "Aceda com as suas credenciais de gestor ou administrador"}
+            {mode === "login" &&
+              (accessFor === "manager"
+                ? "Acesso exclusivo para gestores de lojas e restaurantes"
+                : "Acesso exclusivo para o administrador da plataforma")}
             {mode === "forgot_password" && "Introduza o seu email para receber um link seguro de redefinição"}
             {mode === "update_password" && "Introduza a sua nova palavra-passe segura para concluir a redefinição"}
           </CardDescription>
