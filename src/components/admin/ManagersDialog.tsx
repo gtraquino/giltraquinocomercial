@@ -146,7 +146,7 @@ export default function ManagersDialog({ storeId, storeName, store, customTrigge
     },
   });
 
-  const loginUrl = `${window.location.origin}/login`;
+  const loginUrl = `${window.location.origin}/gerente-login`;
   const catalogUrl = `${window.location.origin}/loja/${store?.slug || storeId}`;
 
   const buildManagerInvitationText = (targetEmail?: string, tempPass?: string) => {
@@ -228,7 +228,7 @@ export default function ManagersDialog({ storeId, storeName, store, customTrigge
 
       toast({
         title: "Palavra-passe alterada com sucesso!",
-        description: `O gestor (${targetEmail}) já pode aceder com a nova palavra-passe em /login.`,
+        description: `O gestor (${targetEmail}) já pode aceder com a nova palavra-passe em /gerente-login.`,
       });
       setChangingPasswordFor(null);
       setNewPasswordValue("");
