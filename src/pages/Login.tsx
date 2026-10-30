@@ -9,7 +9,11 @@ import { toast } from "@/hooks/use-toast";
 import { Store, KeyRound, ArrowRight, ShieldCheck, Mail, ArrowLeft, CheckCircle2, Lock, Database, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function Login() {
+interface LoginProps {
+  accessFor?: "admin" | "manager";
+}
+
+export default function Login({ accessFor = "admin" }: LoginProps) {
   const [mode, setMode] = useState<"login" | "forgot_password" | "update_password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
