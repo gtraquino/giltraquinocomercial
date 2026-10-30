@@ -53,12 +53,47 @@ export default function Login({ accessFor = "admin" }: LoginProps) {
     };
   }, []);
 
+  // Verifica se o utilizador tem o papel exigido por esta página de acesso
+  const checkAccess = async (userId: string): Promise<boolean> => {
+    if (accessFor === "manager") {
+      const { data } = await supabase
+        .from("store_managers")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+      return (data?.length ?? 0) > 0;
+    }
+    const { data } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    return !!data;
+  };
+
+  const rejectWrongRole = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Acesso não autorizado",
+      description:
+        accessFor === "manager"
+          ? "Esta conta não é gestora de nenhuma loja. Use o link de acesso correto."
+          : "Esta área é exclusiva do administrador. Os gestores devem usar o seu próprio link de acesso.",
+      variant: "destructive",
+    });
+  };
+
   // Redireciona utilizadores com sessão válida, exceto se estiverem em modo de atualização de palavra-passe
   useEffect(() => {
     if (!authLoading && user && mode !== "update_password") {
-      navigate(isAdmin ? "/admin" : "/manager", { replace: true });
+      checkAccess(user.id).then((allowed) => {
+        if (!allowed) {
+          rejectWrongRole();
+          return;
+        }
+        navigate(accessFor === "manager" ? "/manager" : "/admin", { replace: true });
+      });
     }
-  }, [authLoading, navigate, user, isAdmin, mode]);
+  }, [authLoading, navigate, user, mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
