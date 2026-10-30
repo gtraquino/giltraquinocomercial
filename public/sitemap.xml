@@ -15,4 +15,29 @@
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
+  <url>
+    <loc>https://giltraquinocomercial.lovable.app/loja/40e08510-b555-4fda-8a64-b93d9c401217</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://giltraquinocomercial.lovable.app/loja/7e2164b7-de6a-4dcb-9ad7-2f3ce5d46745</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://giltraquinocomercial.lovable.app/loja/b573c805-f730-407e-880f-dd108b9e7260</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://giltraquinocomercial.lovable.app/loja/e2970bf1-12eb-4754-9d62-1130cde8db0a</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://giltraquinocomercial.lovable.app/loja/7447bfd3-9489-4296-b25f-d3b43c86ea3f</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>
