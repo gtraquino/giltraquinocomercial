@@ -48,8 +48,8 @@ export default function ActivityDashboard({ role }: { role: "admin" | "manager" 
       const [products, orders, invoices, payments] = await Promise.all([
         pages((from, to) => supabase.from("products").select("id,store_id,in_stock").in("store_id", storeIds).order("id").range(from, to)),
         pages((from, to) => supabase.from("orders").select("id,store_id,total,currency,created_at,customer_name").in("store_id", storeIds).gte("created_at", since).order("created_at", { ascending: false }).order("id").range(from, to)),
-        pages((from, to) => supabase.from("invoices").select("id,store_id").in("store_id", storeIds).gte("issue_date", since.slice(0, 10)).order("id").range(from, to)),
-        role === "admin" ? pages((from, to) => supabase.from("store_payments").select("id,store_id,amount").in("store_id", storeIds).gte("paid_at", since.slice(0, 10)).order("id").range(from, to)) : Promise.resolve([]),
+        pages((from, to) => supabase.from("invoices").select("id,store_id").in("store_id", storeIds).gte("issue_date", start.toISOString().slice(0, 10)).order("id").range(from, to)),
+        role === "admin" ? pages((from, to) => supabase.from("store_payments").select("id,store_id,amount").in("store_id", storeIds).gte("paid_at", start.toISOString().slice(0, 10)).order("id").range(from, to)) : Promise.resolve([]),
       ]);
       return { stores, products, orders, invoices, payments };
     },

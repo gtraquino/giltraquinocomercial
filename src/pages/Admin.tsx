@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
+  LayoutDashboard,
   Store,
   Package,
   Link2,
@@ -23,11 +24,13 @@ import BillingManager from "@/components/admin/BillingManager";
 import BackupManager from "@/components/admin/BackupManager";
 import LinkGenerator from "@/components/admin/LinkGenerator";
 import AgentDashboard from "@/components/admin/AgentDashboard";
+import ActivityDashboard from "@/components/ActivityDashboard";
 import DashboardHero from "@/components/DashboardHero";
 import DatabaseSettings from "@/components/DatabaseSettings";
 import SidebarNav, { type NavItem } from "@/components/layout/SidebarNav";
 
 type Tab =
+  | "welcome"
   | "stores"
   | "products"
   | "stock"
@@ -40,7 +43,7 @@ type Tab =
 
 export default function Admin() {
   const { user, isAdmin, loading, signOut } = useAuth();
-  const [tab, setTab] = useState<Tab>("stores");
+  const [tab, setTab] = useState<Tab>("welcome");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (loading) {
@@ -55,6 +58,7 @@ export default function Admin() {
   if (!isAdmin) return <Navigate to="/manager" replace />;
 
   const tabs: NavItem<Tab>[] = [
+    { id: "welcome", label: "Boas-vindas", icon: <LayoutDashboard className="h-4 w-4" /> },
     { id: "stores", label: "Lojas", icon: <Store className="h-4 w-4" /> },
     { id: "products", label: "Produtos", icon: <Package className="h-4 w-4" /> },
     { id: "stock", label: "Stock", icon: <Boxes className="h-4 w-4" /> },
@@ -102,7 +106,7 @@ export default function Admin() {
 
       <div className="lg:pl-64">
         <main className="mx-auto max-w-7xl p-4 md:p-6">
-          <DashboardHero role="admin" />
+          {tab === "welcome" && <><DashboardHero role="admin" /><ActivityDashboard role="admin" /></>}
           {tab === "stores" && <StoreManager />}
           {tab === "products" && <ProductManager />}
           {tab === "stock" && <StockManager />}
