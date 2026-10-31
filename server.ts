@@ -6,7 +6,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { z } from "zod";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const portIndex = process.argv.indexOf("--port");
+const PORT = Number(portIndex >= 0 ? process.argv[portIndex + 1] : process.env.PORT) || 3000;
 const isProd = process.env.NODE_ENV === "production";
 
 // -------------------------------------------------------------
