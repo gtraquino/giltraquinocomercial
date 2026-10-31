@@ -2,6 +2,6 @@
 - [x] Avaliação SEO / busca com IA, correções e termos realistas
 - [x] Página Boas-vindas com actividade real para administrador e gestor
 - [x] Separar o conteúdo dos restantes menus
-- [ ] Restabelecer a pré-visualização na porta indicada pela plataforma
-- [ ] Verificar actividade e navegação com sessão iniciada
-- [ ] Finalizar organização do conteúdo à direita nos dois painéis
+- [x] Restabelecer a pré-visualização na porta indicada pela plataforma
+- [x] Verificar actividade e navegação com sessão iniciada
+- [x] Finalizar organização do conteúdo à direita nos dois painéis
