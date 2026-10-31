@@ -104,8 +104,8 @@ export default function Admin() {
         </Button>
       </header>
 
-      <div className="lg:pl-64">
-        <main className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="min-w-0 lg:pl-64">
+        <main className="mx-auto min-w-0 max-w-7xl space-y-6 p-4 md:p-6 lg:p-8">
           {tab === "welcome" && <><DashboardHero role="admin" /><ActivityDashboard role="admin" /></>}
           {tab === "stores" && <StoreManager />}
           {tab === "products" && <ProductManager />}

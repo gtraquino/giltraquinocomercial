@@ -86,19 +86,19 @@ export default function ActivityDashboard({ role }: { role: "admin" | "manager" 
   const offline = /fetch|network/i.test(errorText);
 
   return <section className="space-y-6" aria-label="Resumo da actividade">
-    <header className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-      <div>
+    <header className="flex flex-col gap-4 border-b pb-5 xl:flex-row xl:items-center xl:justify-between">
+      <div className="min-w-0">
         <h2 className="text-xl font-bold">Actividade das lojas e restaurantes</h2>
         <p className="text-sm text-muted-foreground">{data ? `${periodLabel} · actualizado a cada minuto` : "Resumo de actividade"}</p>
       </div>
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:flex sm:items-center">
-        <Select value={storeId} onValueChange={setStoreId}><SelectTrigger className="sm:w-52" aria-label="Filtrar loja"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas as lojas</SelectItem>{data?.stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}</SelectContent></Select>
-        <Select value={period} onValueChange={setPeriod}><SelectTrigger className="sm:w-40" aria-label="Período"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">Hoje</SelectItem><SelectItem value="7">Últimos 7 dias</SelectItem><SelectItem value="30">Últimos 30 dias</SelectItem></SelectContent></Select>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
+        <Select value={storeId} onValueChange={setStoreId}><SelectTrigger className="col-span-2 min-w-0 sm:w-52 [&>span]:truncate" aria-label="Filtrar loja"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas as lojas</SelectItem>{data?.stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}</SelectContent></Select>
+        <Select value={period} onValueChange={setPeriod}><SelectTrigger className="min-w-0 sm:w-40" aria-label="Período"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">Hoje</SelectItem><SelectItem value="7">Últimos 7 dias</SelectItem><SelectItem value="30">Últimos 30 dias</SelectItem></SelectContent></Select>
         <Button variant="outline" size="icon" aria-label="Actualizar actividade" title="Actualizar actividade" disabled={isFetching} onClick={() => refetch()}><RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /></Button>
       </div>
     </header>
 
-    {isLoading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-32 animate-pulse rounded-xl border bg-muted" />)}</div>
+    {isLoading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-32 animate-pulse rounded-lg border bg-muted" />)}</div>
     : isError ? <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-destructive" role="alert">
         <p className="flex items-center gap-2 font-semibold"><AlertCircle className="h-5 w-5" />Não foi possível carregar a actividade.</p>
         <p className="text-sm">{offline ? (hasOverride() ? "O navegador está ligado a um endereço de base de dados antigo. Reponha a ligação original." : "Sem ligação ao servidor. Verifique a internet e tente novamente.") : errorText || "Erro desconhecido."}</p>
@@ -107,26 +107,26 @@ export default function ActivityDashboard({ role }: { role: "admin" | "manager" 
     : <>
       {!!data?.warnings.length && <p className="rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm" role="status">Alguns dados não foram carregados ({data.warnings.join(" · ")}).</p>}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{tiles.map(tile => <article key={tile.label} className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-muted-foreground">{tile.label}</h3><span className="rounded-lg bg-primary/10 p-2"><tile.icon className="h-5 w-5 text-primary" /></span></div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{tiles.map(tile => <article key={tile.label} className="min-w-0 rounded-lg border bg-card p-5 shadow-sm">
+        <div className="mb-3 flex min-h-10 items-start justify-between gap-2"><h3 className="text-sm font-medium text-muted-foreground">{tile.label}</h3><span className="shrink-0 rounded-lg bg-primary/10 p-2"><tile.icon className="h-5 w-5 text-primary" /></span></div>
         <p className="text-3xl font-bold">{tile.value}</p><p className="mt-1 text-xs text-muted-foreground">{tile.detail}</p>
       </article>)}</div>
 
       <div className={`grid gap-4 ${role === "admin" ? "md:grid-cols-2" : ""}`}>
-        <article className="rounded-xl border bg-card p-5 shadow-sm">
+        <article className="min-w-0 rounded-lg border bg-card p-5 shadow-sm">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground"><ShoppingBag className="h-4 w-4" />Valor dos pedidos · {periodLabel}</h3>
           {Object.entries(stats.values).length ? Object.entries(stats.values).map(([c, v]) => <p key={c} className="text-2xl font-bold">{amount(v, c)}</p>) : <p className="text-2xl font-bold">—</p>}
           <p className="mt-1 text-xs text-muted-foreground">Pedidos registados, não pagamentos confirmados</p>
         </article>
-        {role === "admin" && <article className="rounded-xl border bg-card p-5 shadow-sm">
+        {role === "admin" && <article className="min-w-0 rounded-lg border bg-card p-5 shadow-sm">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground"><Wallet className="h-4 w-4" />Mensalidades recebidas · {periodLabel}</h3>
           {Object.entries(payments).length ? Object.entries(payments).map(([c, v]) => <p key={c} className="text-2xl font-bold">{amount(v, c)}</p>) : <p className="text-2xl font-bold">—</p>}
           <p className="mt-1 text-xs text-muted-foreground">Pagamentos registados pelo administrador</p>
         </article>}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <article className="rounded-xl border bg-card shadow-sm xl:col-span-2">
+      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <article className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-sm">
           <h3 className="border-b px-5 py-4 text-lg font-semibold">Actividade por estabelecimento</h3>
           <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-muted-foreground"><tr>{["Estabelecimento", "Estado", "Produtos", "Pedidos", "Valor"].map(l => <th key={l} className="whitespace-nowrap px-4 py-3 font-medium">{l}</th>)}</tr></thead>
@@ -139,11 +139,11 @@ export default function ActivityDashboard({ role }: { role: "admin" | "manager" 
           </table>{!stores.length && <p className="px-5 py-6 text-muted-foreground">Sem estabelecimentos disponíveis.</p>}</div>
         </article>
 
-        <article className="rounded-xl border bg-card shadow-sm">
+        <article className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-sm">
           <h3 className="border-b px-5 py-4 text-lg font-semibold">Pedidos mais recentes</h3>
-          <div className="divide-y">{orders.slice(0, 6).map(order => <div key={order.id} className="flex items-center justify-between gap-3 px-5 py-3">
-            <div className="min-w-0"><p className="truncate font-medium">{order.customer_name}</p><p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><Clock className="h-3 w-3 shrink-0" />{stores.find(s => s.id === order.store_id)?.name} · {new Date(order.created_at).toLocaleString("pt-PT", { timeZone: "Africa/Luanda", dateStyle: "short", timeStyle: "short" })}</p></div>
-            <span className="shrink-0 text-sm font-semibold">{amount(Number(order.total), order.currency)}</span>
+          <div className="divide-y">{orders.slice(0, 6).map(order => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+            <div className="min-w-0 flex-1"><p className="break-words font-medium">{order.customer_name}</p><p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground"><Clock className="h-3 w-3 shrink-0" /><span className="break-words">{stores.find(s => s.id === order.store_id)?.name} · {new Date(order.created_at).toLocaleString("pt-PT", { timeZone: "Africa/Luanda", dateStyle: "short", timeStyle: "short" })}</span></p></div>
+            <span className="text-sm font-semibold">{amount(Number(order.total), order.currency)}</span>
           </div>)}{!orders.length && <p className="px-5 py-6 text-muted-foreground">Sem pedidos neste período.</p>}</div>
         </article>
       </div>
