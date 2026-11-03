@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,14 +10,21 @@ import { Copy, ExternalLink, Link2 } from "lucide-react";
 import { getManagedStoreIds } from "@/lib/managerStores";
 
 export default function ManagerLinks() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
+  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+
   const { data: stores = [] } = useQuery({
-    queryKey: ["manager-stores", user?.id],
+    queryKey: ["manager-stores-links", effectivelyAdmin, user?.id, user?.email],
     queryFn: async () => {
       if (!user) return [];
-      const ids = await getManagedStoreIds(user.id);
+      if (effectivelyAdmin) {
+        const { data, error } = await supabase.from("stores").select("*").order("name");
+        if (error) throw error;
+        return data;
+      }
+      const ids = await getManagedStoreIds(user.id, user.email);
       if (ids.length === 0) return [];
       const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;

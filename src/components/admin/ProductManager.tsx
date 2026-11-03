@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -110,15 +110,17 @@ export default function ProductManager() {
     }
   };
 
+  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+
   const { data: stores = [] } = useQuery({
-    queryKey: ["stores-scoped", isAdmin, user?.id],
+    queryKey: ["stores-scoped", effectivelyAdmin, user?.id, user?.email],
     queryFn: async () => {
-      if (isAdmin) {
+      if (effectivelyAdmin) {
         const { data, error } = await supabase.from("stores").select("*").order("name");
         if (error) throw error;
         return data;
       }
-      const ids = await getManagedStoreIds(user!.id);
+      const ids = await getManagedStoreIds(user!.id, user?.email);
       if (ids.length === 0) return [];
       const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
@@ -175,6 +177,11 @@ export default function ProductManager() {
 
   const upsertMutation = useMutation({
     mutationFn: async (data: ProductForm & { id?: string }) => {
+      if (!selectedStoreId) throw new Error("Selecione uma loja primeiro.");
+      if (!isAdmin && !stores.some((s) => s.id === selectedStoreId)) {
+        throw new Error("Acesso negado: Não tem permissão para gerir produtos nesta loja.");
+      }
+
       const parsedQty = data.stock_unlimited ? null : parseInt(data.stock_qty || "0", 10);
       const combinedDescription = formatProductDescription(data.description, parsedQty);
       
@@ -191,7 +198,7 @@ export default function ProductManager() {
         store_id: selectedStoreId,
       };
       if (data.id) {
-        const { error } = await supabase.from("products").update(payload).eq("id", data.id);
+        const { error } = await supabase.from("products").update(payload).eq("id", data.id).eq("store_id", selectedStoreId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("products").insert(payload);
@@ -210,7 +217,10 @@ export default function ProductManager() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (!isAdmin && !stores.some((s) => s.id === selectedStoreId)) {
+        throw new Error("Acesso negado: Não tem permissão para eliminar produtos desta loja.");
+      }
+      const { error } = await supabase.from("products").delete().eq("id", id).eq("store_id", selectedStoreId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -223,6 +233,14 @@ export default function ProductManager() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStoreId) return;
+    if (!isAdmin && !stores.some((s) => s.id === selectedStoreId)) {
+      toast({
+        title: "Acesso Negado",
+        description: "A sua conta de gestor não tem permissão para aceder a esta loja.",
+        variant: "destructive",
+      });
+      return;
+    }
     upsertMutation.mutate({ ...form, id: editId ?? undefined });
   };
 

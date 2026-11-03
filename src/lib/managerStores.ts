@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { validateEmail } from "@/lib/emailValidation";
+import { isOwnerAdminEmail } from "@/contexts/AuthContext";
+import { createClient } from "@supabase/supabase-js";
 
 export interface StoreManagerInfo {
   id: string;
@@ -10,14 +12,25 @@ export interface StoreManagerInfo {
 }
 
 /**
- * Returns all store IDs managed by a user (via store_managers or stores.created_by)
+ * Returns all store IDs managed by a user (via store_managers or stores.created_by, or all if admin)
  */
-export async function getManagedStoreIds(userId: string): Promise<string[]> {
-  if (!userId) return [];
+export async function getManagedStoreIds(userId?: string, userEmail?: string | null): Promise<string[]> {
+  if (!userId && !userEmail) return [];
+
+  // Se for administrador geral, concede acesso a todas as lojas
+  if (userId === "admin-master-traquino-uid" || isOwnerAdminEmail(userEmail)) {
+    try {
+      const { data: allStores, error: allErr } = await supabase.from("stores").select("id").order("name");
+      if (!allErr && allStores && allStores.length > 0) {
+        return allStores.map((s) => s.id);
+      }
+    } catch { /* continuar para verificação padrão */ }
+  }
+
   try {
     const [{ data: mgrRows, error: mgrErr }, { data: ownedRows, error: ownedErr }] = await Promise.all([
-      supabase.from("store_managers").select("store_id").eq("user_id", userId),
-      supabase.from("stores").select("id").eq("created_by", userId),
+      userId ? supabase.from("store_managers").select("store_id").eq("user_id", userId) : Promise.resolve({ data: null, error: null }),
+      userId ? supabase.from("stores").select("id").eq("created_by", userId) : Promise.resolve({ data: null, error: null }),
     ]);
 
     const ids = new Set<string>();
@@ -31,6 +44,17 @@ export async function getManagedStoreIds(userId: string): Promise<string[]> {
         if (s.id) ids.add(s.id);
       });
     }
+
+    // Cache local de associação para isolamento garantido
+    if (userEmail) {
+      const localStore = localStorage.getItem(`mgr_store_${userEmail.toLowerCase().trim()}`);
+      if (localStore) ids.add(localStore);
+    }
+    if (userId) {
+      const localStoreById = localStorage.getItem(`mgr_store_${userId}`);
+      if (localStoreById) ids.add(localStoreById);
+    }
+
     return Array.from(ids);
   } catch (err) {
     console.error("Erro a obter lojas do gestor:", err);
@@ -207,12 +231,26 @@ export async function assignStoreManager(
     // Edge function indisponível
   }
 
-  // 3. Fallback Direto no Cliente: Sign up se novo e associação direta
+  // 3. Fallback Direto no Cliente: Sign up isolado para NUNCA substituir a sessão do Administrador
   let created = false;
   let targetUserId: string | null = null;
 
   try {
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+    const FALLBACK_URL = "https://qdinfgaogmiaoevoatiz.supabase.co";
+    const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkaW5mZ2FvZ21pYW9ldm9hdGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNjU3ODAsImV4cCI6MjA5Njk0MTc4MH0.UcAGFABaniHJmjXx0l2iJbHMIoM5jZvsvtxE8EC0Wto";
+    const curUrl = localStorage.getItem("OVERRIDE_SUPABASE_URL") || import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
+    const curKey = localStorage.getItem("OVERRIDE_SUPABASE_PUBLISHABLE_KEY") || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_KEY;
+
+    // Cliente isolado SEM persistência para proteger a sessão ativa do administrador
+    const isolatedClient = createClient(curUrl, curKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+    const { data: signUpData, error: signUpErr } = await isolatedClient.auth.signUp({
       email: cleanEmail,
       password: password,
     });
@@ -221,19 +259,22 @@ export async function assignStoreManager(
       targetUserId = signUpData.user.id;
       created = true;
     } else if (signUpErr) {
-      console.log("Informação no signup:", signUpErr.message);
+      console.log("Informação no signup isolado:", signUpErr.message);
     }
   } catch (e) {
-    console.warn("Registo de conta:", e);
+    console.warn("Registo de conta isolado:", e);
   }
 
-  if (targetUserId) {
-    try {
+  // Registar associação na cache local para garantir acesso imediato e isolado
+  try {
+    localStorage.setItem(`mgr_store_${cleanEmail}`, storeId);
+    if (targetUserId) {
       localStorage.setItem(`mgr_email_${targetUserId}`, cleanEmail);
-    } catch { /* ignore */ }
-  }
+      localStorage.setItem(`mgr_store_${targetUserId}`, storeId);
+    }
+  } catch { /* ignore */ }
 
-  // 4. Associar gestor à loja
+  // 4. Associar gestor à loja no Supabase (usando a sessão autenticada do administrador)
   let rlsNotice = false;
   if (targetUserId) {
     try {

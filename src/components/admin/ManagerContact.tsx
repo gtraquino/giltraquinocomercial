@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import { getManagedStoreIds } from "@/lib/managerStores";
 
 export default function ManagerContact() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState("");
   const [whatsapp2, setWhatsapp2] = useState("");
@@ -23,11 +23,18 @@ export default function ManagerContact() {
   const [openingTime, setOpeningTime] = useState("");
   const [closingTime, setClosingTime] = useState("");
 
+  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+
   const { data: stores = [] } = useQuery({
-    queryKey: ["manager-stores", user?.id],
+    queryKey: ["manager-stores", effectivelyAdmin, user?.id, user?.email],
     queryFn: async () => {
       if (!user) return [];
-      const ids = await getManagedStoreIds(user.id);
+      if (effectivelyAdmin) {
+        const { data, error } = await supabase.from("stores").select("*").order("name");
+        if (error) throw error;
+        return data;
+      }
+      const ids = await getManagedStoreIds(user.id, user.email);
       if (ids.length === 0) return [];
       const { data, error } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
@@ -60,6 +67,9 @@ export default function ManagerContact() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedStoreId) return;
+      if (!isAdmin && !stores.some((s) => s.id === selectedStoreId)) {
+        throw new Error("Acesso negado: Não tem permissão para editar os dados desta loja.");
+      }
       const { error } = await supabase
         .from("stores")
         .update({

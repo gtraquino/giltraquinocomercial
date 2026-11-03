@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,16 +35,18 @@ export default function StockManager() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StockFilter>("all");
 
+  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+
   // Query stores managed by the current user
   const { data: stores = [] } = useQuery({
-    queryKey: ["stores-scoped-stock", isAdmin, user?.id],
+    queryKey: ["stores-scoped-stock", effectivelyAdmin, user?.id, user?.email],
     queryFn: async () => {
-      if (isAdmin) {
+      if (effectivelyAdmin) {
         const { data, error } = await supabase.from("stores").select("*").order("name");
         if (error) throw error;
         return data;
       }
-      const ids = await getManagedStoreIds(user!.id);
+      const ids = await getManagedStoreIds(user!.id, user?.email);
       if (ids.length === 0) return [];
       const { data, error = null } = await supabase.from("stores").select("*").in("id", ids).order("name");
       if (error) throw error;
@@ -96,6 +98,11 @@ export default function StockManager() {
       newQty: number | null; 
       inStock: boolean 
     }) => {
+      if (!selectedStoreId) throw new Error("Selecione uma loja.");
+      if (!isAdmin && !stores.some((s) => s.id === selectedStoreId)) {
+        throw new Error("Acesso negado: Não tem autorização para gerir o stock desta loja.");
+      }
+
       const combinedDescription = formatProductDescription(cleanDescription, newQty);
       const { error } = await supabase
         .from("products")
@@ -103,7 +110,8 @@ export default function StockManager() {
           description: combinedDescription || null,
           in_stock: inStock
         })
-        .eq("id", productId);
+        .eq("id", productId)
+        .eq("store_id", selectedStoreId);
       if (error) throw error;
     },
     onSuccess: (data, variables) => {

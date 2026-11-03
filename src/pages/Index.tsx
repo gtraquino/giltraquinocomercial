@@ -19,6 +19,37 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Top Navbar */}
+      <nav className="border-b bg-card/90 backdrop-blur sticky top-0 z-40">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+          <Link to="/" className="flex items-center gap-2 font-bold text-foreground hover:opacity-90 transition-opacity">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Store className="h-4 w-4" />
+            </div>
+            <span className="text-base tracking-tight">GilPedidos</span>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm" className="text-xs">
+              <Link to="/manager">
+                Área do Gestor
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+              <Link to="/admin">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Painel Admin</span>
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="text-xs">
+              <Link to="/login">
+                Entrar
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero */}
       <header className="relative overflow-hidden bg-primary text-primary-foreground">
         <div className="mx-auto max-w-6xl px-4 py-20 md:py-28 text-center relative z-10">

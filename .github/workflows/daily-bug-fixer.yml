@@ -22,19 +22,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure Git Safe Identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
-
-      - name: Configure Git Safe Identity
         run: |
-          git config user.name "BugFix Agent [AI]"
-          git config user.email "agent-bot@users.noreply.github.com"
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
 
       - name: Run Self-Improving Bug Fixer Agent
         env:
@@ -47,9 +52,15 @@ jobs:
       - name: Persist Updated Learning Memory
         if: always()
         run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main || true
           if [ -d ".agent" ]; then
             git add .agent/knowledge-base.json || true
-            git commit -m "chore(agent): update learning memory and success rate metrics [skip ci]" || true
-            git push origin main || true
+            if ! git diff --cached --quiet; then
+              git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -m "chore(agent): update learning memory and success rate metrics [skip ci]" || true
+              git push origin main || true
+            else
+              echo "Nenhuma alteração na memória do agente para persistir."
+            fi
           fi

@@ -318,5 +318,108 @@ describe("Auditoria e Testes Automatizados de Segurança", () => {
       expect(result.success).toBe(true);
     });
   });
+
+  // =========================================================================
+  // 9. ISOLAMENTO MULTI-TENANT E CONTROLO DE ACESSO DE GESTORES
+  // =========================================================================
+  describe("Isolamento Estrito de Gestores e Lojas (Multi-Tenancy)", () => {
+    interface MockStore {
+      id: string;
+      name: string;
+      created_by: string;
+    }
+
+    interface MockStoreManager {
+      store_id: string;
+      user_id: string;
+    }
+
+    const stores: MockStore[] = [
+      { id: "store-alpha", name: "Padaria Central", created_by: "admin-uid" },
+      { id: "store-beta", name: "Boutique Elegance", created_by: "admin-uid" },
+      { id: "store-gamma", name: "Restaurante Luanda", created_by: "admin-uid" },
+    ];
+
+    const storeManagers: MockStoreManager[] = [
+      { store_id: "store-alpha", user_id: "manager-alpha-uid" },
+      { store_id: "store-beta", user_id: "manager-beta-uid" },
+    ];
+
+    const adminEmails = ["g.traquino66@gmail.com", "giltraquino@gmail.com", "giltraquinocomercial@gmail.com"];
+
+    function getAuthorizedStoreIds(user: { id: string; email: string }, isAdmin: boolean): string[] {
+      if (isAdmin || adminEmails.includes(user.email.toLowerCase().trim())) {
+        return stores.map((s) => s.id);
+      }
+      return storeManagers
+        .filter((sm) => sm.user_id === user.id)
+        .map((sm) => sm.store_id);
+    }
+
+    function canManageProduct(user: { id: string; email: string }, isAdmin: boolean, productStoreId: string): boolean {
+      const allowedStores = getAuthorizedStoreIds(user, isAdmin);
+      return allowedStores.includes(productStoreId);
+    }
+
+    it("Gestor Alpha só tem acesso estrito à Store Alpha e NUNCA à Store Beta", () => {
+      const managerAlpha = { id: "manager-alpha-uid", email: "gestor.alpha@empresa.ao" };
+      const allowed = getAuthorizedStoreIds(managerAlpha, false);
+
+      expect(allowed).toContain("store-alpha");
+      expect(allowed).not.toContain("store-beta");
+      expect(allowed).not.toContain("store-gamma");
+
+      expect(canManageProduct(managerAlpha, false, "store-alpha")).toBe(true);
+      expect(canManageProduct(managerAlpha, false, "store-beta")).toBe(false);
+      expect(canManageProduct(managerAlpha, false, "store-gamma")).toBe(false);
+    });
+
+    it("Gestor Beta só tem acesso estrito à Store Beta e NUNCA à Store Alpha", () => {
+      const managerBeta = { id: "manager-beta-uid", email: "gestor.beta@empresa.ao" };
+      const allowed = getAuthorizedStoreIds(managerBeta, false);
+
+      expect(allowed).toContain("store-beta");
+      expect(allowed).not.toContain("store-alpha");
+      expect(allowed).not.toContain("store-gamma");
+
+      expect(canManageProduct(managerBeta, false, "store-beta")).toBe(true);
+      expect(canManageProduct(managerBeta, false, "store-alpha")).toBe(false);
+      expect(canManageProduct(managerBeta, false, "store-gamma")).toBe(false);
+    });
+
+    it("Gestor sem loja atribuída não tem acesso a nenhuma loja do sistema", () => {
+      const managerUnassigned = { id: "manager-orphan-uid", email: "novo.gestor@empresa.ao" };
+      const allowed = getAuthorizedStoreIds(managerUnassigned, false);
+
+      expect(allowed).toHaveLength(0);
+      expect(canManageProduct(managerUnassigned, false, "store-alpha")).toBe(false);
+      expect(canManageProduct(managerUnassigned, false, "store-beta")).toBe(false);
+    });
+
+    it("Administrador Geral mantém acesso a todas as lojas", () => {
+      const admin = { id: "admin-uid", email: "g.traquino66@gmail.com" };
+      const allowed = getAuthorizedStoreIds(admin, true);
+
+      expect(allowed).toHaveLength(3);
+      expect(allowed).toContain("store-alpha");
+      expect(allowed).toContain("store-beta");
+      expect(allowed).toContain("store-gamma");
+
+      expect(canManageProduct(admin, true, "store-alpha")).toBe(true);
+      expect(canManageProduct(admin, true, "store-beta")).toBe(true);
+    });
+
+    it("Ficheiros SQL de migração devem conter função is_store_manager e políticas isoladas", () => {
+      const migrationFile = path.resolve(process.cwd(), "supabase/migrations/20260910153000_fix_security_and_multitenancy.sql");
+      expect(fs.existsSync(migrationFile)).toBe(true);
+
+      const sql = fs.readFileSync(migrationFile, "utf-8");
+      expect(sql).toContain("CREATE OR REPLACE FUNCTION public.is_store_manager");
+      expect(sql).toContain("products_insert_isolated");
+      expect(sql).toContain("products_update_isolated");
+      expect(sql).toContain("products_delete_isolated");
+      expect(sql).toContain("orders_select_isolated");
+    });
+  });
 });
 
