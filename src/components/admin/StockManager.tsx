@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,7 +35,9 @@ export default function StockManager() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StockFilter>("all");
 
-  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+  // Admin status comes from the database role, never from a hardcoded email list.
+  const effectivelyAdmin = isAdmin;
+
 
   // Query stores managed by the current user
   const { data: stores = [] } = useQuery({

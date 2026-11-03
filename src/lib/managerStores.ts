@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { validateEmail } from "@/lib/emailValidation";
-import { isOwnerAdminEmail } from "@/contexts/AuthContext";
 import { createClient } from "@supabase/supabase-js";
 
 export interface StoreManagerInfo {
@@ -17,15 +16,22 @@ export interface StoreManagerInfo {
 export async function getManagedStoreIds(userId?: string, userEmail?: string | null): Promise<string[]> {
   if (!userId && !userEmail) return [];
 
-  // Se for administrador geral, concede acesso a todas as lojas
-  if (userId === "admin-master-traquino-uid" || isOwnerAdminEmail(userEmail)) {
+  // Admin status comes only from the server-side user_roles table (has_role RPC).
+  if (userId) {
     try {
-      const { data: allStores, error: allErr } = await supabase.from("stores").select("id").order("name");
-      if (!allErr && allStores && allStores.length > 0) {
-        return allStores.map((s) => s.id);
+      const { data: isAdminUser, error: adminErr } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      if (!adminErr && isAdminUser === true) {
+        const { data: allStores, error: allErr } = await supabase.from("stores").select("id").order("name");
+        if (!allErr && allStores && allStores.length > 0) {
+          return allStores.map((s) => s.id);
+        }
       }
     } catch { /* continuar para verificação padrão */ }
   }
+
 
   try {
     const [{ data: mgrRows, error: mgrErr }, { data: ownedRows, error: ownedErr }] = await Promise.all([

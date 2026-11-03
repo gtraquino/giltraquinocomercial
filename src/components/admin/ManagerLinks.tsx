@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +13,9 @@ export default function ManagerLinks() {
   const { user, isAdmin } = useAuth();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
-  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+  // Admin status comes from the database role, never from a hardcoded email list.
+  const effectivelyAdmin = isAdmin;
+
 
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores-links", effectivelyAdmin, user?.id, user?.email],
