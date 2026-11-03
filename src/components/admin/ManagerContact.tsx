@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, isOwnerAdminEmail } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,9 @@ export default function ManagerContact() {
   const [openingTime, setOpeningTime] = useState("");
   const [closingTime, setClosingTime] = useState("");
 
-  const effectivelyAdmin = isAdmin || isOwnerAdminEmail(user?.email);
+  // Admin status comes from the database role, never from a hardcoded email list.
+  const effectivelyAdmin = isAdmin;
+
 
   const { data: stores = [] } = useQuery({
     queryKey: ["manager-stores", effectivelyAdmin, user?.id, user?.email],
