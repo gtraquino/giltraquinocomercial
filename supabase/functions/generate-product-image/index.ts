@@ -39,6 +39,13 @@ Deno.serve(async (req) => {
     ]);
     if (!isAdmin && !isMgr) return json({ error: "Sem permissão para esta loja" }, 403);
 
+    const { data: quota, error: qErr } = await userClient.rpc("consume_ai_quota", { _kind: "image", _store_id: product.store_id });
+    if (qErr) return json({ error: "Não foi possível verificar a quota de IA." }, 503);
+    if (!(quota as { allowed?: boolean })?.allowed) {
+      const reason = (quota as { reason?: string })?.reason;
+      return json({ error: reason === "store_day" ? "Limite diário de IA desta loja atingido (100). Tente amanhã." : reason === "minute" ? "Muitos pedidos de IA. Aguarde 1 minuto." : "Limite diário de IA da sua conta atingido." }, 429);
+    }
+
     const { data: store } = await admin.from("stores")
       .select("name, type, primary_color, accent_color").eq("id", product.store_id).maybeSingle();
 

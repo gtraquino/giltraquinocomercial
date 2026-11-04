@@ -149,6 +149,17 @@ async function requireStaff(req: Request, res: Response, next: NextFunction) {
     const r = roles.ok ? ((await roles.json()) as unknown[]) : [];
     const m = mgr.ok ? ((await mgr.json()) as unknown[]) : [];
     if (r.length === 0 && m.length === 0) return res.status(403).json({ error: "Sem permissão." });
+    // Quota persistida por utilizador (sobrevive a reinícios, não depende do IP)
+    const q = await fetch(`${url}/rest/v1/rpc/consume_ai_quota`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ _kind: "text" }),
+    });
+    if (!q.ok) return res.status(503).json({ error: "Não foi possível verificar a quota de IA." });
+    const quota = (await q.json()) as { allowed?: boolean; reason?: string };
+    if (!quota?.allowed) {
+      return res.status(429).json({ error: quota?.reason === "minute" ? "Muitos pedidos de IA. Aguarde 1 minuto." : "Limite diário de IA da sua conta atingido." });
+    }
     next();
   } catch {
     return res.status(401).json({ error: "Não autenticado." });
