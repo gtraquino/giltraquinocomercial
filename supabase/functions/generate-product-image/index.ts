@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     if (qErr) return json({ error: "Não foi possível verificar a quota de IA." }, 503);
     if (!(quota as { allowed?: boolean })?.allowed) {
       const reason = (quota as { reason?: string })?.reason;
-      return json({ error: reason === "store_day" ? "Limite diário de IA desta loja atingido (100). Tente amanhã." : reason === "minute" ? "Muitos pedidos de IA. Aguarde 1 minuto." : "Limite diário de IA da sua conta atingido." }, 429);
+      return json({ error: reason === "store_day" ? "Limite diário de IA desta loja atingido (200). Tente amanhã." : reason === "minute" ? "Muitos pedidos de IA. Aguarde 1 minuto." : "Limite diário de IA da sua conta atingido." }, 429);
     }
 
     const { data: store } = await admin.from("stores")
